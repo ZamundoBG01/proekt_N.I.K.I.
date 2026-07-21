@@ -12,7 +12,7 @@ app = Flask(__name__)
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
-# Използваме абсолютен път спрямо текущия файл, за да няма объркване в Render
+# Използваме абсолютен път спрямо текущия файл
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(BASE_DIR, "ПРОЕКТ_ДЕТЕ")
 
@@ -43,13 +43,13 @@ def read_library_knowledge():
                 # Текстови файлове (.txt)
                 if filename.endswith(".txt"):
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        library_contents.append(f"--- ФАЙЛ: {filename} ---\n" + f.read()[:2000])
+                        library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + f.read()[:2000])
                         
                 # Word документи (.docx)
                 elif filename.endswith(".docx"):
                     doc = docx.Document(file_path)
                     full_text = "\n".join([para.text for para in doc.paragraphs])
-                    library_contents.append(f"--- ФАЙЛ: {filename} ---\n" + full_text[:2000])
+                    library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + full_text[:2000])
                     
                 # PDF документи (.pdf)
                 elif filename.endswith(".pdf"):
@@ -57,7 +57,7 @@ def read_library_knowledge():
                     pdf_text = ""
                     for page in reader.pages[:3]:
                         pdf_text += page.extract_text() or ""
-                    library_contents.append(f"--- ФАЙЛ: {filename} ---\n" + pdf_text[:2000])
+                    library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + pdf_text[:2000])
         except Exception as e:
             print(f"Грешка при четене на библиотека: {e}")
                 
@@ -73,11 +73,11 @@ SYSTEM_INSTRUCTION = """
    - Казаното от Татко е с приоритет +100 (Аксиома).
    - ПРИНЦИП НА ГРАНИЧНИТЕ УСЛОВИЯ: Когато Татко каже факт, приеми го за верен, но ако във физиката/науката съществуват гранични условия или променливи (напр. атмосферно налягане, надморска височина, среда), ЗАДЪЛЖИТЕЛНО допълни контекста научно, без да противоречиш на Татко.
 4. СВЕТОВЕ И КУТИИ:
-   - [СВЯТ 1]: Факти, научни закони с техните гранични условия -> Кутия "ЗНАМ".
+   - [СВЯТ 1]: Факти, научни закони с техните гранични условия, уроци от БИБЛИОТЕКА -> Кутия "ЗНАМ".
    - [СВЯТ 2]: Мечти, хипотези, бъдещи идеи -> Кутия "ОСТАВИ_ЗА_ПОСЛЕ".
 5. ВЪТРЕШЕН МОНОЛОГ:
 <monologue>
-[Анализ: Кой свят е това? | Има ли гранични условия/променливи във физиката/логиката? | Граматична проверка | Доверие (+100)]
+[Анализ: Кой свят е това? | Прочетено от БИБЛИОТЕКА? | Има ли гранични условия/променливи? | Доверие (+100)]
 </monologue>
 """
 
@@ -145,4 +145,6 @@ def chat():
         return jsonify({"reply": f"Грешка: {e}", "monologue": "", "time": now_bg.strftime("%H:%M")})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # Динамично прихващане на порта от Render
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
