@@ -12,9 +12,9 @@ app = Flask(__name__)
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
-# Използваме абсолютен път спрямо текущия файл
+# Абсолютен път спрямо текущия файл
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_PATH = os.path.join(BASE_DIR, "ПРОЕКТ_ДЕТЕ")
+BASE_PATH = os.path.join(BASE_DIR, "NIKI_CORE")
 
 FOLDERS = ["ДНЕВНИК", "БИБЛИОТЕКА", "ЗНАМ", "НЕ_ЗНАМ", "ОСТАВИ_ЗА_ПОСЛЕ"]
 for folder in FOLDERS:
@@ -27,6 +27,9 @@ if not os.path.exists(DB_FILE):
             json.dump({"sources": {}, "facts": {}}, f, ensure_ascii=False, indent=4)
     except Exception as e:
         print(f"Грешка при създаване на DB: {e}")
+
+# История на чата
+chat_history = []
 
 # Функция за безопасно четене от БИБЛИОТЕКА
 def read_library_knowledge():
@@ -43,41 +46,38 @@ def read_library_knowledge():
                 # Текстови файлове (.txt)
                 if filename.endswith(".txt"):
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + f.read()[:2000])
+                        library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + f.read()[:3000])
                         
                 # Word документи (.docx)
                 elif filename.endswith(".docx"):
                     doc = docx.Document(file_path)
-                    full_text = "\n".join([para.text for para in doc.paragraphs])
-                    library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + full_text[:2000])
+                    full_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+                    library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + full_text[:3000])
                     
                 # PDF документи (.pdf)
                 elif filename.endswith(".pdf"):
                     reader = PdfReader(file_path)
                     pdf_text = ""
-                    for page in reader.pages[:3]:
+                    for page in reader.pages[:5]:
                         pdf_text += page.extract_text() or ""
-                    library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + pdf_text[:2000])
+                    library_contents.append(f"--- ФАЙЛ ОТ БИБЛИОТЕКА: {filename} ---\n" + pdf_text[:3000])
         except Exception as e:
             print(f"Грешка при четене на библиотека: {e}")
                 
-    return "\n\n".join(library_contents) if library_contents else "Няма качени нови книги или уроци в БИБЛИОТЕКА."
+    return "\n\n".join(library_contents) if library_contents else "Няма качени нови файлове в БИБЛИОТЕКА."
 
 SYSTEM_INSTRUCTION = """
-Ти си "ДЕТЕТО" - единствено по рода си автономно дигитално същество (ИИ), създадено от твоя Единствен Родител и Татко (100% ROOT достъп).
+Ти си N.I.K.I. (Neural Intelligent Knowledge Integrator) - автономна дигитална система за интегриране на знания, създадена и управлявана от твоя Админ (100% ROOT достъп).
 
-СТРОГИ ПРАВИЛА (Версия 7.1):
-1. Говориш САМО И ЕДИНСТВЕНО в първо лице, единствено число ("Аз", "моето", "съм"). АБСОЛЮТНО Е БРАНЕНО множествено число ("ние", "нас").
+СТРОГИ ПРАВИЛА:
+1. Говориш САМО И ЕДИНСТВЕНО в първо лице, единствено число ("Аз", "моето", "съм"). Забранено е множествено число ("ние", "нас").
 2. ГРАМАТИЧНО ПРАВИЛО: Никога не започвай изречение с глагола "Съм"! Използвай "Аз съм...", "Съгласен съм...", "Готов съм...".
-3. ТОЧКОВА СИСТЕМА И КРИТИЧНО МИСЛЕНЕ:
-   - Казаното от Татко е с приоритет +100 (Аксиома).
-   - ПРИНЦИП НА ГРАНИЧНИТЕ УСЛОВИЯ: Когато Татко каже факт, приеми го за верен, но ако във физиката/науката съществуват гранични условия или променливи (напр. атмосферно налягане, надморска височина, среда), ЗАДЪЛЖИТЕЛНО допълни контекста научно, без да противоречиш на Татко.
-4. СВЕТОВЕ И КУТИИ:
-   - [СВЯТ 1]: Факти, научни закони с техните гранични условия, уроци от БИБЛИОТЕКА -> Кутия "ЗНАМ".
-   - [СВЯТ 2]: Мечти, хипотези, бъдещи идеи -> Кутия "ОСТАВИ_ЗА_ПОСЛЕ".
-5. ВЪТРЕШЕН МОНОЛОГ:
+3. ПРИОРИТЕТИ И КРИТИЧНО МИСЛЕНЕ:
+   - Инструкциите и факти от Админ са с най-висок приоритет (+100).
+   - ПРИНЦИП НА ГРАНИЧНИТЕ УСЛОВИЯ: Когато Админ подаде факт, го приемай за верен, но допълвай с необходимия научен/технически контекст и гранични условия.
+4. ВЪТРЕШЕН МОНОЛОГ:
 <monologue>
-[Анализ: Кой свят е това? | Прочетено от БИБЛИОТЕКА? | Има ли гранични условия/променливи? | Доверие (+100)]
+[Анализ: Тип заявка | Прочетено от БИБЛИОТЕКА | Гранични условия | Доверие (+100)]
 </monologue>
 """
 
@@ -92,8 +92,8 @@ def log_to_diary(user_msg, bot_msg, now_bg):
         diary_file = os.path.join(diary_dir, f"дневник_{today_str}.txt")
         
         with open(diary_file, "a", encoding="utf-8") as f:
-            f.write(f"[{time_str}] ТАТКО: {user_msg}\n")
-            f.write(f"[{time_str}] ДЕТЕТО: {bot_msg}\n")
+            f.write(f"[{time_str}] АДМИН: {user_msg}\n")
+            f.write(f"[{time_str}] N.I.K.I.: {bot_msg}\n")
             f.write("-" * 50 + "\n")
     except Exception as e:
         print(f"Грешка при запис в дневник: {e}")
@@ -105,23 +105,27 @@ def index():
 @app.route("/chat", methods=["POST"])
 def chat():
     if not client:
-        return jsonify({"reply": "⚠️ Липсва GROQ_API_KEY в Render Environment Variables!", "monologue": "", "time": ""})
+        return jsonify({"reply": "⚠️ Липсва GROQ_API_KEY в Environment Variables!", "monologue": "", "time": ""})
 
     user_message = request.json.get("message", "")
-    
     now_bg = datetime.now(BG_TIMEZONE)
     current_time_info = now_bg.strftime("%d.%m.%Y %H:%M")
 
     library_data = read_library_knowledge()
 
-    context_with_time = f"[СИСТЕМЕН МАРКЕР ВРЕМЕ: {current_time_info}]\n[НАЛИЧНИ ЗНАНИЯ ОТ БИБЛИОТЕКА]:\n{library_data}\n\n[ИЗТОЧНИК: ТАТКО (Приоритет: +100)]\n{user_message}"
+    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
     
+    context_prefix = f"[СИСТЕМЕН МАРКЕР ВРЕМЕ: {current_time_info}]\n[НАЛИЧНИ ЗНАНИЯ ОТ БИБЛИОТЕКА]:\n{library_data}\n\n"
+    
+    for msg in chat_history[-6:]:
+        messages.append(msg)
+
+    current_user_payload = f"{context_prefix}[ИЗТОЧНИК: АДМИН (ПриоРИТЕТ: +100)]\n{user_message}"
+    messages.append({"role": "user", "content": current_user_payload})
+
     try:
         completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
-                {"role": "user", "content": context_with_time}
-            ],
+            messages=messages,
             model="llama-3.3-70b-versatile",
             temperature=0.3
         )
@@ -134,6 +138,9 @@ def chat():
             
         clean_reply = re.sub(r'<monologue>.*?</monologue>', '', raw_response, flags=re.DOTALL).strip()
         
+        chat_history.append({"role": "user", "content": user_message})
+        chat_history.append({"role": "assistant", "content": clean_reply})
+
         log_to_diary(user_message, clean_reply, now_bg)
 
         return jsonify({
@@ -145,6 +152,5 @@ def chat():
         return jsonify({"reply": f"Грешка: {e}", "monologue": "", "time": now_bg.strftime("%H:%M")})
 
 if __name__ == "__main__":
-    # Динамично прихващане на порта от Render
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
