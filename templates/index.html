@@ -97,18 +97,13 @@
             margin-bottom: 8px;
             text-transform: uppercase;
         }
-        .badge-fact {
-            background-color: #059669;
-            color: white;
-            font-size: 0.75rem;
-        }
     </style>
 </head>
 <body>
 <div class="container-fluid h-100 p-0">
     <div class="row g-0 h-100">
         
-        <!-- ЛЯВО МЕНЮ: Работни пространства & Файлове -->
+        <!-- ЛЯВО МЕНЮ -->
         <div class="col-md-2 sidebar p-3">
             <h5 class="fw-bold mb-3 text-primary"><i class="fa-solid fa-brain me-2"></i>N.I.K.I. CORE</h5>
             
@@ -130,7 +125,7 @@
             </form>
         </div>
 
-        <!-- ЦЕНТРАЛНА ЗОНА: Чат -->
+        <!-- ЦЕНТРАЛЕН ЧАТ -->
         <div class="col-md-7 main-chat">
             <div class="p-3 border-bottom border-secondary d-flex justify-content-between align-items-center">
                 <span>Активно пространство: <strong id="current-ws-display" class="text-info">GENERAL</strong></span>
@@ -149,23 +144,20 @@
             </div>
         </div>
 
-        <!-- ДЯСНО МЕНЮ: Табло за контрол (Dashboard) -->
+        <!-- ДЯСНО ТАБЛО -->
         <div class="col-md-3 right-dashboard p-3">
             <h6 class="fw-bold mb-3 text-warning"><i class="fa-solid fa-gauge-high me-2"></i>Табло за контрол</h6>
 
-            <!-- Секция Факти -->
             <div class="dash-card">
                 <div class="dash-title"><i class="fa-solid fa-certificate me-1"></i> Записани Факти (+100)</div>
                 <div id="facts-list" class="small text-light">Няма регистрирани факти.</div>
             </div>
 
-            <!-- Секция Задачи -->
             <div class="dash-card">
                 <div class="dash-title"><i class="fa-solid fa-list-check me-1"></i> Активни Задачи</div>
                 <div id="tasks-list" class="small text-light">Няма активни задачи.</div>
             </div>
 
-            <!-- Секция Библиотека -->
             <div class="dash-card">
                 <div class="dash-title"><i class="fa-solid fa-folder-open me-1"></i> Файлове в Библиотеката</div>
                 <div id="files-list" class="small text-light">Няма качени файлове.</div>
@@ -245,7 +237,13 @@
         
         let nikiMsg = `<div class="message-niki">`;
         if (data.monologue) {
-            nikiMsg += `<div class="monologue-box"><i class="fa-solid fa-brain me-1"></i> <strong>Мисловен процес:</strong>\n${data.monologue}</div>`;
+            nikiMsg += `
+            <details class="mb-2">
+                <summary style="cursor: pointer; color: #7dd3fc; font-size: 0.85rem;">
+                    <i class="fa-solid fa-brain me-1"></i> <strong>Мисловен процес (Кликни за преглед +)</strong>
+                </summary>
+                <div class="monologue-box mt-2">${data.monologue}</div>
+            </details>`;
         }
         nikiMsg += `<div>${data.reply}</div></div>`;
 
