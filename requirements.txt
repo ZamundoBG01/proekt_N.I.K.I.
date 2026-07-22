@@ -3,3 +3,6 @@ groq
 python-docx
 pypdf
 gunicorn
+sentence-transformers
+faiss-cpu
+numpy
