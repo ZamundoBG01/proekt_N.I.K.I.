@@ -451,7 +451,10 @@ def upload_file():
     if ext not in {".txt", ".pdf", ".docx"}:
         return jsonify({"status": "error", "message": "Неподдържан формат."})
         
-    filename = secure_filename(file.filename)
+    # Поправка: Поддръжка на кирилица, интервали и тирета в имената
+    clean_name = re.sub(r'[^\w\s\.\-\(\)]', '_', file.filename).strip()
+    filename = clean_name if clean_name else f"document{ext}"
+    
     save_path = os.path.join(paths["library"], filename)
     
     file_bytes = file.read()
