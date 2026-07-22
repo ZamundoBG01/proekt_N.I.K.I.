@@ -19,7 +19,7 @@ GROQ_KEY = os.environ.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-GITHUB_REPO = os.environ.get("GITHUB_REPO")  # Напр: "username/repository"
+GITHUB_REPO = os.environ.get("GITHUB_REPO")
 GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,21 +28,48 @@ WORKSPACES_DIR = os.path.join(BASE_PATH, "workspaces")
 
 os.makedirs(WORKSPACES_DIR, exist_ok=True)
 
-def upload_file_to_github(relative_filepath, file_bytes):
-    """Автоматично прави commit на качените файлове в GitHub репозиторието"""
+def download_repo_from_github():
+    """Сваля цялото NIKI_CORE съдържание от GitHub при стартиране"""
     if not GITHUB_TOKEN or not GITHUB_REPO:
-        print("⚠️ Липсва GITHUB_TOKEN или GITHUB_REPO за синхронизация.")
+        print("⚠️ Липсват GitHub данни за автоматично изтегляне.")
+        return
+
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/git/trees/{GITHUB_BRANCH}?recursive=1"
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    
+    try:
+        res = requests.get(url, headers=headers)
+        if res.status_code == 200:
+            tree = res.json().get("tree", [])
+            for item in tree:
+                path = item.get("path", "")
+                if path.startswith("NIKI_CORE/"):
+                    local_file_path = os.path.join(BASE_DIR, path)
+                    if item.get("type") == "tree":
+                        os.makedirs(local_file_path, exist_ok=True)
+                    elif item.get("type") == "blob":
+                        os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+                        # Изтегляне на файла
+                        file_res = requests.get(item.get("url"), headers=headers)
+                        if file_res.status_code == 200:
+                            content = base64.b64decode(file_res.json().get("content", ""))
+                            with open(local_file_path, "wb") as f:
+                                f.write(content)
+            print("✅ Всички файлове от GitHub са изтеглени успешно!")
+    except Exception as e:
+        print(f"⚠️ Грешка при изтегляне от GitHub: {e}")
+
+# Синхронизираме локалната папка от GitHub при стартиране
+download_repo_from_github()
+
+def upload_file_to_github(relative_filepath, file_bytes):
+    if not GITHUB_TOKEN or not GITHUB_REPO:
         return False
         
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{relative_filepath}"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     
     encoded_content = base64.b64encode(file_bytes).decode('utf-8')
-    
-    # Проверка дали файлът вече съществува
     get_res = requests.get(url, headers=headers)
     sha = get_res.json().get("sha") if get_res.status_code == 200 else None
     
@@ -63,12 +90,17 @@ def get_all_workspaces():
     for d_ws in default_ws:
         if d_ws not in ws_list:
             ws_list.append(d_ws)
-    return sorted(list(set(ws_list)))
+    
+    unique_ws = sorted(list(set(ws_list)))
+    # Заковаване на general НАЙ-ГОРЕ
+    if "general" in unique_ws:
+        unique_ws.remove("general")
+        return ["general"] + unique_ws
+    return unique_ws
 
 def get_workspace_paths(ws_name="general"):
     ws_clean = re.sub(r'[^\w\-]', '_', ws_name.lower().strip())
-    if not ws_clean:
-        ws_clean = "general"
+    if not ws_clean: ws_clean = "general"
         
     ws_base = os.path.join(WORKSPACES_DIR, ws_clean)
     paths = {
@@ -90,8 +122,7 @@ def chunk_text(text, chunk_size=400, overlap=40):
     chunks = []
     for i in range(0, len(words), chunk_size - overlap):
         chunk = " ".join(words[i:i + chunk_size])
-        if chunk.strip():
-            chunks.append(chunk)
+        if chunk.strip(): chunks.append(chunk)
     return chunks
 
 def build_vector_index_for_workspace(ws_name):
@@ -114,8 +145,7 @@ def build_vector_index_for_workspace(ws_name):
                     extracted_text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
                 elif filename.endswith(".pdf"):
                     reader = PdfReader(file_path)
-                    for page in reader.pages:
-                        extracted_text += (page.extract_text() or "") + "\n"
+                    for page in reader.pages: extracted_text += (page.extract_text() or "") + "\n"
             except Exception as e:
                 print(f"Грешка четене {filename}: {e}")
 
@@ -185,7 +215,6 @@ def save_fact_or_hypothesis(ws_name, text, category="fact"):
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
         
-    # Синхронизация с GitHub
     rel_path = os.path.relpath(filepath, BASE_DIR)
     with open(filepath, "rb") as f:
         upload_file_to_github(rel_path, f.read())
@@ -296,6 +325,16 @@ def manage_workspaces():
     
     return jsonify({"workspaces": get_all_workspaces()})
 
+@app.route("/workspace_files/<ws_name>", methods=["GET"])
+def get_workspace_files(ws_name):
+    """Връща списък с качените файлове за конкретно работно пространство"""
+    paths, _ = get_workspace_paths(ws_name)
+    lib_dir = paths["library"]
+    files = []
+    if os.path.exists(lib_dir):
+        files = [f for f in os.listdir(lib_dir) if not os.path.isdir(os.path.join(lib_dir, f))]
+    return jsonify({"files": files})
+
 @app.route("/upload", methods=["POST"])
 def upload_file():
     ws_name = request.form.get("workspace", "general")
@@ -319,7 +358,6 @@ def upload_file():
     with open(save_path, "wb") as f:
         f.write(file_bytes)
     
-    # Качване в GitHub автоматично
     relative_path = os.path.relpath(save_path, BASE_DIR)
     uploaded = upload_file_to_github(relative_path, file_bytes)
     
