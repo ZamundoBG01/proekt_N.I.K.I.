@@ -1,6 +1,8 @@
 import os
 import json
 import re
+import base64
+import requests
 from datetime import datetime, timedelta, timezone
 import numpy as np
 import docx
@@ -16,11 +18,44 @@ app = Flask(__name__)
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GITHUB_REPO = os.environ.get("GITHUB_REPO")  # Напр: "username/repository"
+GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = os.path.join(BASE_DIR, "NIKI_CORE")
 WORKSPACES_DIR = os.path.join(BASE_PATH, "workspaces")
 
 os.makedirs(WORKSPACES_DIR, exist_ok=True)
+
+def upload_file_to_github(relative_filepath, file_bytes):
+    """Автоматично прави commit на качените файлове в GitHub репозиторието"""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        print("⚠️ Липсва GITHUB_TOKEN или GITHUB_REPO за синхронизация.")
+        return False
+        
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{relative_filepath}"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    encoded_content = base64.b64encode(file_bytes).decode('utf-8')
+    
+    # Проверка дали файлът вече съществува
+    get_res = requests.get(url, headers=headers)
+    sha = get_res.json().get("sha") if get_res.status_code == 200 else None
+    
+    payload = {
+        "message": f"N.I.K.I. Auto-Sync: {os.path.basename(relative_filepath)}",
+        "content": encoded_content,
+        "branch": GITHUB_BRANCH
+    }
+    if sha:
+        payload["sha"] = sha
+        
+    put_res = requests.put(url, headers=headers, json=payload)
+    return put_res.status_code in [200, 201]
 
 def get_all_workspaces():
     ws_list = [d for d in os.listdir(WORKSPACES_DIR) if os.path.isdir(os.path.join(WORKSPACES_DIR, d))]
@@ -149,6 +184,11 @@ def save_fact_or_hypothesis(ws_name, text, category="fact"):
     
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+        
+    # Синхронизация с GitHub
+    rel_path = os.path.relpath(filepath, BASE_DIR)
+    with open(filepath, "rb") as f:
+        upload_file_to_github(rel_path, f.read())
 
 def get_tasks(ws_name):
     paths, _ = get_workspace_paths(ws_name)
@@ -170,6 +210,10 @@ def add_task(ws_name, task_desc):
     })
     with open(tasks_file, "w", encoding="utf-8") as f:
         json.dump(tasks, f, ensure_ascii=False, indent=2)
+        
+    rel_path = os.path.relpath(tasks_file, BASE_DIR)
+    with open(tasks_file, "rb") as f:
+        upload_file_to_github(rel_path, f.read())
 
 def complete_task(ws_name, task_desc):
     paths, _ = get_workspace_paths(ws_name)
@@ -183,6 +227,9 @@ def complete_task(ws_name, task_desc):
     if updated:
         with open(tasks_file, "w", encoding="utf-8") as f:
             json.dump(tasks, f, ensure_ascii=False, indent=2)
+        rel_path = os.path.relpath(tasks_file, BASE_DIR)
+        with open(tasks_file, "rb") as f:
+            upload_file_to_github(rel_path, f.read())
     return updated
 
 def get_chat_history(ws_name):
@@ -207,7 +254,6 @@ def save_chat_message(ws_name, role, content):
     with open(chat_file, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
-# --- ИНСТРУКЦИЯ С ВЕРИГА ОТ МИСЛИ (CHAIN-OF-THOUGHT REASONING) ---
 SYSTEM_INSTRUCTION = """
 Ти си N.I.K.I. (Neural Intelligent Knowledge Integrator) - автономна платформа за интегриране на знания, управлявана от Админ (100% ROOT достъп).
 
@@ -268,10 +314,19 @@ def upload_file():
         
     filename = secure_filename(file.filename)
     save_path = os.path.join(paths["library"], filename)
-    file.save(save_path)
+    
+    file_bytes = file.read()
+    with open(save_path, "wb") as f:
+        f.write(file_bytes)
+    
+    # Качване в GitHub автоматично
+    relative_path = os.path.relpath(save_path, BASE_DIR)
+    uploaded = upload_file_to_github(relative_path, file_bytes)
     
     build_vector_index_for_workspace(ws_clean)
-    return jsonify({"status": "success", "message": f"Файлът '{filename}' е качен в Workspace [{ws_clean.upper()}]!"})
+    
+    msg = f"Файлът '{filename}' е качен и синхронизиран с GitHub!" if uploaded else f"Файлът '{filename}' е качен локално (GitHub sync не е активен)."
+    return jsonify({"status": "success", "message": msg})
 
 @app.route("/chat", methods=["POST"])
 def chat():
