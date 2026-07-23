@@ -35,6 +35,18 @@ def init_db():
     if conn:
         try:
             with conn.cursor() as cur:
+                # ТАБЛИЦА ЗА ПРОЕКТИ (WORKSPACES)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS workspaces (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(100) UNIQUE NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                # Гарантираме, че GENERAL проектът винаги съществува
+                cur.execute("""
+                    INSERT INTO workspaces (name) VALUES ('general') ON CONFLICT (name) DO NOTHING;
+                """)
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS verified_facts (
                         id SERIAL PRIMARY KEY,
@@ -53,7 +65,6 @@ def init_db():
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
-                # ТАБЛИЦА ЗА ИСТОРИЯ НА ЧАТА
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS chat_history (
                         id SERIAL PRIMARY KEY,
@@ -190,7 +201,6 @@ def add_workspace_fact(ws_name, content, category="ДИРЕКТЕН ЗАПИС")
             json.dump(existing, f, ensure_ascii=False, indent=2)
     except: pass
 
-# --- ЧАТ ИСТОРИЯ (DB) ---
 def save_chat_message(ws_name, sender, message):
     conn = get_db_connection()
     if conn:
@@ -228,6 +238,7 @@ def clear_workspace_data(ws_name):
                 cur.execute("DELETE FROM verified_facts WHERE workspace = %s;", (ws_name,))
                 cur.execute("DELETE FROM causal_chains WHERE workspace = %s;", (ws_name,))
                 cur.execute("DELETE FROM chat_history WHERE workspace = %s;", (ws_name,))
+                cur.execute("DELETE FROM workspaces WHERE name = %s;", (ws_name,))
                 conn.commit()
         except Exception as e: print(f"DB Clear Error: {e}")
         finally: conn.close()
@@ -302,6 +313,8 @@ def handle_workspaces():
     if not os.path.exists(WORKSPACES_DIR):
         os.makedirs(WORKSPACES_DIR, exist_ok=True)
 
+    conn = get_db_connection()
+
     if request.method == "POST":
         data = request.get_json() or {}
         raw_name = data.get("name", "")
@@ -311,13 +324,26 @@ def handle_workspaces():
             os.makedirs(os.path.join(ws_path, "facts"), exist_ok=True)
             os.makedirs(os.path.join(ws_path, "library"), exist_ok=True)
 
+            if conn:
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("INSERT INTO workspaces (name) VALUES (%s) ON CONFLICT (name) DO NOTHING;", (ws_name,))
+                        conn.commit()
+                except Exception as e: print(f"WS Save DB Error: {e}")
+                finally: conn.close()
+
         return jsonify({"status": "success", "workspace": ws_name})
 
-    try:
-        entries = os.listdir(WORKSPACES_DIR)
-        workspaces = [d for d in entries if os.path.isdir(os.path.join(WORKSPACES_DIR, d))]
-    except Exception:
-        workspaces = ["general"]
+    workspaces = ["general"]
+    if conn:
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT name FROM workspaces ORDER BY id ASC;")
+                rows = cur.fetchall()
+                if rows:
+                    workspaces = [r["name"] for r in rows]
+        except Exception as e: print(f"WS Read DB Error: {e}")
+        finally: conn.close()
 
     other_workspaces = sorted([w for w in workspaces if w.lower() != "general"])
     ordered_workspaces = ["general"] + other_workspaces
@@ -352,9 +378,7 @@ def chat():
     if not message:
         return jsonify({"reply": "Моля, въведете инструкция.", "monologue": None})
 
-    # Запазваме въпроса на потребителя в базата данни
     save_chat_message(active_ws, "user", message)
-
     existing_facts = get_workspace_facts(active_ws)
 
     library_path = os.path.join(WORKSPACES_DIR, active_ws, "library")
@@ -415,7 +439,6 @@ def chat():
 
     ai_result = call_ai_engine(message, existing_facts, file_list, library_text)
 
-    # Запазваме отговора на N.I.K.I. в базата данни
     save_chat_message(active_ws, "niki", ai_result["reply"])
 
     return jsonify({
