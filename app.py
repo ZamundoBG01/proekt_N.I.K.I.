@@ -35,7 +35,6 @@ def init_db():
     if conn:
         try:
             with conn.cursor() as cur:
-                # ТАБЛИЦА ЗА ПРОЕКТИ (WORKSPACES)
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS workspaces (
                         id SERIAL PRIMARY KEY,
@@ -43,7 +42,6 @@ def init_db():
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
-                # Гарантираме, че GENERAL проектът винаги съществува
                 cur.execute("""
                     INSERT INTO workspaces (name) VALUES ('general') ON CONFLICT (name) DO NOTHING;
                 """)
@@ -71,6 +69,7 @@ def init_db():
                         workspace VARCHAR(100) NOT NULL,
                         sender VARCHAR(20) NOT NULL,
                         message TEXT NOT NULL,
+                        monologue TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
@@ -91,29 +90,12 @@ def clean_ai_response(text):
     if not text:
         return text
     
-    lat_to_cyr = {
-        'a': 'а', 'e': 'е', 'o': 'о', 'p': 'р', 'c': 'с', 'x': 'х',
-        'A': 'А', 'E': 'Е', 'O': 'О', 'P': 'Р', 'C': 'С', 'X': 'Х'
-    }
-    
-    words = text.split()
-    cleaned_words = []
-    for word in words:
-        cyr_count = len(re.findall(r'[\u0400-\u04FF]', word))
-        if cyr_count > 0:
-            for lat, cyr in lat_to_cyr.items():
-                word = word.replace(lat, cyr)
-        cleaned_words.append(word)
-    
-    result = " ".join(cleaned_words)
-
     fixes = {
         r"\bСъм съгласен\b": "Съгласен съм",
-        r"\bсъм съгласен\b": "съм съгласен",
         r"\bАз съм съгласен\b": "Съгласен съм",
-        r"\bСъм готов\b": "Готов съм",
-        r"\bсъм готов\b": "съм готов"
+        r"\bСъм готов\b": "Готов съм"
     }
+    result = text
     for pattern, replacement in fixes.items():
         result = re.sub(pattern, replacement, result, flags=re.IGNORECASE)
 
@@ -162,18 +144,10 @@ def get_workspace_facts(ws_name):
             print(f"DB Read Error: {e}")
         finally:
             conn.close()
-
-    facts_path = os.path.join(WORKSPACES_DIR, ws_name, "facts", "verified_facts.json")
-    if os.path.exists(facts_path):
-        try:
-            with open(facts_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except: return []
     return []
 
 def add_workspace_fact(ws_name, content, category="ДИРЕКТЕН ЗАПИС"):
     conn = get_db_connection()
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if conn:
         try:
             with conn.cursor() as cur:
@@ -185,28 +159,12 @@ def add_workspace_fact(ws_name, content, category="ДИРЕКТЕН ЗАПИС")
         finally:
             conn.close()
 
-    ws_path = os.path.join(WORKSPACES_DIR, ws_name, "facts")
-    os.makedirs(ws_path, exist_ok=True)
-    facts_file = os.path.join(ws_path, "verified_facts.json")
-    
-    existing = []
-    if os.path.exists(facts_file):
-        try:
-            with open(facts_file, "r", encoding="utf-8") as f: existing = json.load(f)
-        except: existing = []
-    
-    existing.append({"content": content, "timestamp": now_str, "confidence": 100, "category": category})
-    try:
-        with open(facts_file, "w", encoding="utf-8") as f:
-            json.dump(existing, f, ensure_ascii=False, indent=2)
-    except: pass
-
-def save_chat_message(ws_name, sender, message):
+def save_chat_message(ws_name, sender, message, monologue=None):
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("INSERT INTO chat_history (workspace, sender, message) VALUES (%s, %s, %s);", (ws_name, sender, message))
+                cur.execute("INSERT INTO chat_history (workspace, sender, message, monologue) VALUES (%s, %s, %s, %s);", (ws_name, sender, message, monologue))
                 conn.commit()
         except Exception as e: print(f"Chat DB Save Error: {e}")
         finally: conn.close()
@@ -216,13 +174,14 @@ def get_chat_history(ws_name):
     if conn:
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("SELECT sender, message, created_at FROM chat_history WHERE workspace = %s ORDER BY id ASC;", (ws_name,))
+                cur.execute("SELECT sender, message, monologue, created_at FROM chat_history WHERE workspace = %s ORDER BY id ASC;", (ws_name,))
                 rows = cur.fetchall()
                 history = []
                 for r in rows:
                     history.append({
                         "sender": r["sender"],
                         "message": r["message"],
+                        "monologue": r["monologue"],
                         "timestamp": r["created_at"].strftime("%H:%M") if r["created_at"] else ""
                     })
                 return history
@@ -266,19 +225,20 @@ def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
         {library_context[:6000] if library_context else 'Няма допълнителен текст.'}
 
         ПРАВИЛА ЗА РАБОТА С "ЕФЕКТА НА ПЕПЕРУДАТА":
-        1. Ако има директен конфликт с фактите, ЗАДЪЛЖИТЕЛНО започни с:
+        1. Използвай ЗАДЪЛЖИТЕЛНО всички налични факти за проекта.
+        2. Ако има директен конфликт с фактите, ЗАДЪЛЖИТЕЛНО започни с:
            "⚠️ **ЛОГИЧЕСКА АЛАРМА (Ефект на пеперудата):**" и обясни защо.
 
-        2. Когато провеждаш АНАЛИЗ или СИМУЛАЦИЯ на промяна:
+        3. Когато провеждаш АНАЛИЗ или СИМУЛАЦИЯ на промяна:
            - **Секция 1: 🔒 ТВЪРДА ДЕТЕРМИНИРАНА ВЕРИГА (Неизбежни преки последици)**
              Проследи стъпка по стъпка физическите, икономическите и пряко дефинирани логически последици от А до Я.
              
            - **Секция 2: 🎲 СИМУЛАЦИЯ НА 10 ВАРИАНТА (Спонтанни вторични променливи)**
              Изброи до 10 развиващи се разклонения. 
-             ВАЖНО: За ВСЕКИ вариант НЕ просто описвай прякото действие, а **генерирай СПОНТАННА ВТОРИЧНА ПРОМЕНЛИВА** (нов герой, ненадеен ресурс, революция, нов конфликт, природно събитие), която се поражда от ситуацията.
-             Посочи процентна вероятност (напр. *Вариант 3/10 - 70% вероятност*) и обясни как тази нова променлива отваря **ИЗЦЯЛО НОВ СЮЖЕТЕН КЛОН** за писателя/разработчика.
+             ВАЖНО: За ВСЕКИ вариант генерарирай СПОНТАННА ВТОРИЧНА ПРОМЕНЛИВА (нов герой, ненадеен ресурс, революция, нов конфликт, природно събитие).
+             Посочи процентна вероятност (напр. *Вариант 3/10 - 70% вероятност*).
 
-        3. Отговаряй ВИНАГИ на правилен български език.
+        4. Отговаряй ВИНАГИ на чист и правилен български език, без да заменяш букви.
         """
 
         response = groq_client.chat.completions.create(
@@ -296,7 +256,7 @@ def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
 
         return {
             "reply": cleaned_reply,
-            "thought": f"AI Engine: Groq (Llama 3.3 70B)\n- Използвани базисни факти: {len(context_facts)}\n- Файлове в библиотеката: {len(file_list)}"
+            "thought": f"🧠 Вътрешен монолог / Анализ:\n- Използвани факти от DB: {len(context_facts)}\n- Прочетени файлове от библиотеката: {len(file_list)}\n- AI Модел: Llama 3.3 70B (Versatile)"
         }
     except Exception as e:
         return {
@@ -429,7 +389,7 @@ def chat():
         reply = f"✅ Записах следното за постоянно в базата данни на **{active_ws.upper()}**:\n\n> \"{clean_text}\""
         monologue = f"Запис в базата данни:\n- Съдържание: '{clean_text}'\n- Проект: {active_ws.upper()}"
 
-        save_chat_message(active_ws, "niki", reply)
+        save_chat_message(active_ws, "niki", reply, monologue)
 
         return jsonify({
             "reply": reply,
@@ -439,7 +399,7 @@ def chat():
 
     ai_result = call_ai_engine(message, existing_facts, file_list, library_text)
 
-    save_chat_message(active_ws, "niki", ai_result["reply"])
+    save_chat_message(active_ws, "niki", ai_result["reply"], ai_result["thought"])
 
     return jsonify({
         "reply": ai_result["reply"],
