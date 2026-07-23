@@ -38,6 +38,18 @@ def safe_write_json(file_path, data):
         print(f"Грешка при запис в {file_path}: {e}")
         return False
 
+def clean_command_phrases(text):
+    """Изчиства командата и оставя само същинския факт."""
+    patterns = [
+        r"^(запиши предното съобщение|запиши|добави факт|запиши следното|тогава запиши за дата [0-9\.]+ следното\.?)\s*:?",
+        r"предното \"запиши предното съобщение\" може да го изтриеш.*$",
+        r"имах предвид да запишеш съобщението преди него.*$"
+    ]
+    cleaned = text
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE).strip()
+    return cleaned if cleaned else text
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -64,14 +76,12 @@ def handle_workspaces():
 
         return jsonify({"status": "success", "workspace": ws_name})
 
-    # GET: Връща списък с подредба - GENERAL най-горе!
     try:
         entries = os.listdir(WORKSPACES_DIR)
         workspaces = [d for d in entries if os.path.isdir(os.path.join(WORKSPACES_DIR, d))]
     except Exception:
         workspaces = ["general"]
 
-    # Премахваме general и го слагаме твърдо на 1-во място
     other_workspaces = sorted([w for w in workspaces if w.lower() != "general"])
     ordered_workspaces = ["general"] + other_workspaces
 
@@ -82,15 +92,12 @@ def workspace_data(ws_name):
     clean_ws = sanitize_ws_name(ws_name)
     ws_path = os.path.join(WORKSPACES_DIR, clean_ws)
 
-    # 1. Факти
     facts_path = os.path.join(ws_path, "facts", "verified_facts.json")
     facts = safe_read_json(facts_path)
 
-    # 2. Задачи
     tasks_path = os.path.join(ws_path, "tasks", "backlog.json")
     tasks = safe_read_json(tasks_path)
 
-    # 3. Файлове
     library_path = os.path.join(ws_path, "library")
     files = []
     if os.path.exists(library_path) and os.path.isdir(library_path):
@@ -119,10 +126,21 @@ def chat():
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Проверка дали потребителят иска да запише нов факт
+    # Искане за изтриване/изчистване
+    if "изтрий" in message.lower() and "всичко" in message.lower():
+        safe_write_json(facts_path, [])
+        return jsonify({
+            "reply": f"🗑️ Всички факти в проект **{active_ws.upper()}** бяха изтрити.",
+            "monologue": "Изчистване на базата данни по заявка.",
+            "target_workspace": active_ws
+        })
+
+    # Записване на нов факт (автоматично изчистен от командите)
     if any(kw in message.lower() for kw in ["запиши", "добави факт", "дневник:"]):
+        cleaned_content = clean_command_phrases(message)
+        
         new_fact = {
-            "content": message,
+            "content": cleaned_content,
             "timestamp": now_str,
             "confidence": 100,
             "category": "ДИРЕКТЕН ЗАПИС"
@@ -130,10 +148,10 @@ def chat():
         existing_facts.append(new_fact)
         safe_write_json(facts_path, existing_facts)
         
-        reply = f"✅ Успешно записах следния факт в **{active_ws.upper()}**:\n\n> \"{message}\""
-        monologue = f"Автоматичен запис във базата данни на {active_ws.upper()}.\n- Време: {now_str}\n- Статус: Записан."
+        reply = f"✅ Анализирах съобщението, премахнах излишните команди и записах следния факт в **{active_ws.upper()}**:\n\n> \"{cleaned_content}\""
+        monologue = f"Интелигентно филтриране на команда:\n- Оригинален текст: '{message}'\n- Извлечен чист факт: '{cleaned_content}'\n- Статус: Успешно записан."
 
-    # Проверка дали потребителят пита за съществуващи записи
+    # Въпрос за записите
     elif any(kw in message.lower() for kw in ["вчера", "записи", "какво има", "покажи", "факти"]):
         if existing_facts:
             facts_text = "\n".join([f"• **[{f.get('timestamp', 'Б/Д')}]**: {f.get('content', f.get('fact', ''))}" for f in existing_facts])
@@ -141,38 +159,17 @@ def chat():
         else:
             reply = f"ℹ️ Все още няма намерени записи или факти в проект **{active_ws.upper()}**."
         
-        monologue = f"Сканиране на {facts_path}...\n- Намерени записи: {len(existing_facts)}\n- Форматиране на отговора завършено."
+        monologue = f"Сканиране на {facts_path}...\n- Намерени записи: {len(existing_facts)}"
 
     else:
-        # Стандартен отговор
-        reply = f"Разбрах. Заявката ви беше регистрирана в **{active_ws.upper()}**. Ако искате да запиша нещо трайно във фактите, използвайте думата 'Запиши:'."
-        monologue = f"Обработка на съобщение в проект [{active_ws.upper()}].\n- Текст: '{message}'"
+        reply = f"Разбрах. Съобщението ви беше прието в **{active_ws.upper()}**."
+        monologue = f"Обработка в проект [{active_ws.upper()}]: '{message}'"
 
     return jsonify({
         "reply": reply,
         "monologue": monologue,
         "target_workspace": active_ws
     })
-
-@app.route("/delete_file", methods=["POST"])
-def delete_file():
-    data = request.get_json() or {}
-    ws_name = sanitize_ws_name(data.get("workspace", "general"))
-    filename = data.get("filename", "")
-
-    if not filename:
-        return jsonify({"message": "Невалидно име на файл."}), 400
-
-    file_path = os.path.join(WORKSPACES_DIR, ws_name, "library", filename)
-
-    if os.path.exists(file_path):
-        try:
-            os.remove(file_path)
-            return jsonify({"message": f"Файлът '{filename}' беше изтрит успешно."})
-        except Exception as e:
-            return jsonify({"message": f"Грешка при изтриване: {str(e)}"}), 500
-    
-    return jsonify({"message": "Файлът не бе намерен."}), 404
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
