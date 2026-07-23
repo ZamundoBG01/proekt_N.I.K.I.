@@ -4,6 +4,8 @@ import re
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from groq import Groq
+import pypdf
+import docx
 
 app = Flask(__name__)
 
@@ -14,17 +16,14 @@ GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
 groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
 def sanitize_ws_name(name):
-    """Преобразува имената на проектите в безопасен формат за папки."""
     if not name:
         return "general"
     return name.strip().lower().replace(" ", "_")
 
 def clean_ai_response(text):
-    """Автоматично коригира типични граматични грешки и смесени латински букви."""
     if not text:
         return text
     
-    # 1. Замяна на визуално сходни латински букви с български (homoglyphs)
     lat_to_cyr = {
         'a': 'а', 'e': 'е', 'o': 'о', 'p': 'р', 'c': 'с', 'x': 'х',
         'A': 'А', 'E': 'Е', 'O': 'О', 'P': 'Р', 'C': 'С', 'X': 'Х'
@@ -33,7 +32,6 @@ def clean_ai_response(text):
     words = text.split()
     cleaned_words = []
     for word in words:
-        # Ако думата съдържа преобладаващо кирилица, заменяме единичните латински букви вътре
         cyr_count = len(re.findall(r'[\u0400-\u04FF]', word))
         if cyr_count > 0:
             for lat, cyr in lat_to_cyr.items():
@@ -42,7 +40,6 @@ def clean_ai_response(text):
     
     result = " ".join(cleaned_words)
 
-    # 2. Поправка на развалени фрази от буквален превод
     fixes = {
         r"\bСъм съгласен\b": "Съгласен съм",
         r"\bсъм съгласен\b": "съм съгласен",
@@ -54,6 +51,26 @@ def clean_ai_response(text):
         result = re.sub(pattern, replacement, result, flags=re.IGNORECASE)
 
     return result
+
+def extract_text_from_file(file_path):
+    """Извлича чист текст от PDF, DOCX или TXT файлове."""
+    ext = os.path.splitext(file_path)[1].lower()
+    extracted_text = ""
+    try:
+        if ext == ".pdf":
+            reader = pypdf.PdfReader(file_path)
+            for page in reader.pages:
+                extracted_text += (page.extract_text() or "") + "\n"
+        elif ext in [".docx", ".doc"]:
+            doc = docx.Document(file_path)
+            for paragraph in doc.paragraphs:
+                extracted_text += paragraph.text + "\n"
+        elif ext in [".txt", ".json", ".md"]:
+            with open(file_path, "r", encoding="utf-8") as f:
+                extracted_text = f.read()
+    except Exception as e:
+        print(f"Грешка при извличане на текст от {file_path}: {e}")
+    return extracted_text.strip()
 
 def safe_read_json(file_path):
     if os.path.exists(file_path):
@@ -76,7 +93,7 @@ def safe_write_json(file_path, data):
         print(f"Грешка при запис в {file_path}: {e}")
         return False
 
-def call_ai_engine(prompt, context_facts=[]):
+def call_ai_engine(prompt, context_facts=[], library_context=""):
     if not groq_client:
         return {
             "reply": f"Обработена инструкция: {prompt}",
@@ -86,16 +103,19 @@ def call_ai_engine(prompt, context_facts=[]):
 
     try:
         system_instructions = f"""
-        Ти си N.I.K.I. - усъвършенстван персонален асистент и ядро на системата.
-        Твоята цел е да помагаш при изграждането на сюжетни линии, архитектура на MMORPG игри, световни загадки и иновации.
-        
-        ЗАКОВАНА ПАМЕТ И ФАКТИ ЗА ТОЗИ ПРОЕКТ:
+        Ти си N.I.K.I. - изключително аналитичен асистент за писатели и гейм-разработчици.
+        Специализиран си в следене на логически вериги ("Ефекта на пеперудата").
+
+        ПРОВЕРЕНИ ФАКТИ В ПРОЕКТА:
         {json.dumps(context_facts, ensure_ascii=False)}
-        
-        ПРАВИЛА:
-        1. Отговаряй ВИНАГИ на чист, граматически правилен български език.
-        2. НИКОГА не противоречи на фактите, записани по-горе. Спазвай стриктно логиката на 'Ефекта на пеперудата'.
-        3. Бъди креативен, точен и давай практични идеи за разработка.
+
+        ТЕКСТ ОТ ДОКУМЕНТИ В БИБЛИОТЕКАТА:
+        {library_context[:4000] if library_context else 'Няма качен документ.'}
+
+        ПРАВИЛА ЗА АНАЛИЗ:
+        1. Проверявай за логически конфликти (напр. суша -> срив в популацията, а не растеж).
+        2. Ако потребителят пита за качените файлове, цитирай информацията от тях.
+        3. Отговаряй ВИНАГИ на правилен български език.
         """
 
         response = groq_client.chat.completions.create(
@@ -104,7 +124,7 @@ def call_ai_engine(prompt, context_facts=[]):
                 {"role": "system", "content": system_instructions},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.6,
+            temperature=0.5,
             max_tokens=1500
         )
 
@@ -113,7 +133,7 @@ def call_ai_engine(prompt, context_facts=[]):
 
         return {
             "reply": cleaned_reply,
-            "thought": f"AI Engine: Groq (Llama 3.3 70B)\n- Валидиран контекст: {len(context_facts)} факта\n- Автоматично чистене на езика: Активно.",
+            "thought": f"AI Engine: Groq (Llama 3.3 70B)\n- Сканирани факти: {len(context_facts)}\n- Четене от библиотека: {'Да' if library_context else 'Не'}",
             "extracted_fact": None
         }
     except Exception as e:
@@ -194,15 +214,25 @@ def chat():
     if not message:
         return jsonify({"reply": "Моля, въведете инструкция.", "monologue": None})
 
-    facts_path = os.path.join(WORKSPACES_DIR, active_ws, "facts", "verified_facts.json")
+    ws_path = os.path.join(WORKSPACES_DIR, active_ws)
+    facts_path = os.path.join(ws_path, "facts", "verified_facts.json")
     existing_facts = safe_read_json(facts_path)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Четене на съдържанието от библиотеката
+    library_path = os.path.join(ws_path, "library")
+    library_text = ""
+    if os.path.exists(library_path):
+        for fname in os.listdir(library_path):
+            fpath = os.path.join(library_path, fname)
+            if os.path.isfile(fpath):
+                library_text += f"\n--- ФАЙЛ: {fname} ---\n" + extract_text_from_file(fpath)
 
     if "изтрий всичко" in message.lower():
         safe_write_json(facts_path, [])
         return jsonify({
-            "reply": f"🗑️ Всички факти и записи в проект **{active_ws.upper()}** бяха изчистени.",
-            "monologue": "Изчистване на локалната база данни по заявка.",
+            "reply": f"🗑️ Всички факти в проект **{active_ws.upper()}** бяха изчистени.",
+            "monologue": "Изчистване на локалната база данни.",
             "target_workspace": active_ws
         })
 
@@ -222,8 +252,8 @@ def chat():
         existing_facts.append(new_fact)
         safe_write_json(facts_path, existing_facts)
 
-        reply = f"✅ Успешно записах следното в **{active_ws.upper()}**:\n\n> \"{clean_text}\""
-        monologue = f"Запис във база данни:\n- Съдържание: '{clean_text}'\n- Проект: {active_ws.upper()}"
+        reply = f"✅ Записах следното във фактите на **{active_ws.upper()}**:\n\n> \"{clean_text}\""
+        monologue = f"Запис във фактите:\n- Съдържание: '{clean_text}'\n- Проект: {active_ws.upper()}"
 
         return jsonify({
             "reply": reply,
@@ -231,7 +261,7 @@ def chat():
             "target_workspace": active_ws
         })
 
-    ai_result = call_ai_engine(message, existing_facts)
+    ai_result = call_ai_engine(message, existing_facts, library_text)
 
     return jsonify({
         "reply": ai_result["reply"],
@@ -256,7 +286,7 @@ def upload_file():
     save_path = os.path.join(library_path, file.filename)
     file.save(save_path)
 
-    return jsonify({"message": f"Файлът '{file.filename}' беше успешно качен в {ws_name.upper()}."})
+    return jsonify({"message": f"Файлът '{file.filename}' беше качен успешно в {ws_name.upper()}."})
 
 @app.route("/delete_file", methods=["POST"])
 def delete_file():
