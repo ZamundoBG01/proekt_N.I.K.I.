@@ -150,7 +150,19 @@
 
         button:hover { opacity: 0.9; }
 
-        .btn-danger { background-color: var(--accent-red); }
+        .btn-danger-small {
+            background-color: var(--accent-red);
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
         .sidebar {
             display: flex;
@@ -171,6 +183,10 @@
             color: #f0f6fc;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         select, input[type="text"] {
@@ -181,13 +197,13 @@
             color: #fff;
             border-radius: 6px;
             box-sizing: border-box;
-            margin-bottom: 8px;
         }
 
         .ws-select-row {
             display: flex;
-            gap: 5px;
+            gap: 6px;
             margin-bottom: 8px;
+            align-items: center;
         }
 
         .file-item {
@@ -207,6 +223,7 @@
         .file-actions {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
 
         .btn-icon {
@@ -214,8 +231,8 @@
             border: none;
             color: var(--accent-red);
             cursor: pointer;
-            padding: 2px 5px;
-            font-size: 0.9rem;
+            padding: 2px 4px;
+            font-size: 0.85rem;
         }
 
         .btn-icon:hover { opacity: 0.8; }
@@ -262,41 +279,47 @@
         </div>
     </div>
 
-    <!-- СРАНИЧЕН ПАНЕЛ -->
+    <!-- СТРАНИЧЕН ПАНЕЛ -->
     <div class="sidebar">
         <!-- Избор на Проект -->
         <div class="panel">
-            <h3>📁 Избор на Проект</h3>
+            <h3 style="cursor: default;">📁 Избор на Проект</h3>
             <div class="ws-select-row">
                 <select id="ws-select" onchange="switchWorkspace()"></select>
-                <button class="btn-danger" title="Изтрий текущия проект" onclick="deleteCurrentWorkspace()">🗑️</button>
+                <button class="btn-danger-small" title="Изтрий текущия проект" onclick="deleteCurrentWorkspace()">🗑️</button>
             </div>
             <div style="display: flex; gap: 5px;">
                 <input type="text" id="new-ws-name" placeholder="Нов проект...">
-                <button onclick="createWorkspace()">+</button>
+                <button onclick="createWorkspace()" style="padding: 6px 12px;">+</button>
             </div>
         </div>
 
         <!-- Библиотека и Документи -->
         <div class="panel">
-            <h3>📚 Библиотека & Документи (.docx)</h3>
+            <h3 style="cursor: default;">📚 Библиотека & Документи (.docx)</h3>
             <div id="file-list"></div>
             <div style="margin-top: 10px;">
                 <input type="file" id="file-upload" style="display: none;" onchange="uploadFile()">
-                <button onclick="document.getElementById('file-upload').click()" style="width: 100%; background-color: #21262d; border: 1px solid var(--border-color);">📤 Качи файл</button>
+                <button onclick="document.getElementById('file-upload').click()" style="width: 100%; background-color: #21262d; border: 1px solid var(--border-color); padding: 8px;">📤 Качи файл</button>
             </div>
         </div>
 
-        <!-- База Факти -->
+        <!-- База Факти (Скриваща се) -->
         <div class="panel" style="flex: 1; overflow-y: auto;">
-            <h3>📌 Факти в Базата Данни</h3>
-            <div id="facts-list"></div>
+            <h3 onclick="toggleFactsSection()" title="Кликни за свиване/разгъване">
+                📌 Факти в Базата Данни 
+                <span id="facts-arrow" style="font-size: 0.8rem; color: var(--accent-blue);">▼</span>
+            </h3>
+            <div id="facts-container">
+                <div id="facts-list"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
     let activeWorkspace = "general";
+    let factsExpanded = true;
 
     async function loadWorkspaces() {
         const res = await fetch("/workspaces");
@@ -326,7 +349,7 @@
         });
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        // Зареждане на файлове (с червено хиксче ❌ за изтриване)
+        // Зареждане на файлове
         const fileList = document.getElementById("file-list");
         fileList.innerHTML = "";
         if (data.files.length === 0) {
@@ -335,7 +358,7 @@
             data.files.forEach(f => {
                 fileList.innerHTML += `
                     <div class="file-item">
-                        <span title="${f}">${f.length > 18 ? f.substring(0,15)+'...' : f}</span>
+                        <span title="${f}">${f.length > 16 ? f.substring(0,13)+'...' : f}</span>
                         <div class="file-actions">
                             <a href="/download/${activeWorkspace}/${encodeURIComponent(f)}" target="_blank">[Свали]</a>
                             <button class="btn-icon" onclick="deleteFile('${f}')" title="Изтрий файла">❌</button>
@@ -354,6 +377,19 @@
             data.facts.forEach(fact => {
                 factsList.innerHTML += `<div class="fact-item">• ${fact.content}</div>`;
             });
+        }
+    }
+
+    function toggleFactsSection() {
+        const container = document.getElementById("facts-container");
+        const arrow = document.getElementById("facts-arrow");
+        factsExpanded = !factsExpanded;
+        if (factsExpanded) {
+            container.style.display = "block";
+            arrow.textContent = "▼";
+        } else {
+            container.style.display = "none";
+            arrow.textContent = "▲";
         }
     }
 
