@@ -133,7 +133,7 @@ HTML_TEMPLATE = """
         .app-container { display: flex; height: 100vh; }
         
         .sidebar-left { width: 260px; background-color: #1c2541; padding: 20px; border-right: 1px solid #3a506b; display: flex; flex-direction: column; }
-        .sidebar-right { width: 340px; background-color: #1c2541; padding: 15px; border-left: 1px solid #3a506b; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .sidebar-right { width: 360px; background-color: #1c2541; padding: 15px; border-left: 1px solid #3a506b; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
         .chat-main { flex: 1; display: flex; flex-direction: column; background-color: #0b132b; height: 100vh; }
         
         .brand-header { font-weight: bold; font-size: 1.2rem; color: #4cc9f0; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
@@ -143,18 +143,24 @@ HTML_TEMPLATE = """
         .chat-header { padding: 15px 20px; background: #1c2541; border-bottom: 1px solid #3a506b; display: flex; justify-content: space-between; align-items: center; }
         .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
         
-        .msg-user { background: #4361ee; color: white; padding: 10px 14px; border-radius: 10px; max-width: 80%; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .msg-bot { background: #1c2541; color: #e0e1dd; padding: 10px 14px; border-radius: 10px; max-width: 85%; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #3a506b; }
+        .msg-user { background: #4361ee; color: white; padding: 10px 14px; border-radius: 10px; max-width: 80%; align-self: flex-end; border-bottom-right-radius: 2px; white-space: pre-wrap; }
+        .msg-bot { background: #1c2541; color: #e0e1dd; padding: 10px 14px; border-radius: 10px; max-width: 85%; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #3a506b; white-space: pre-wrap; }
         
-        .chat-input-area { padding: 15px; background: #1c2541; border-top: 1px solid #3a506b; display: flex; gap: 10px; }
-        .chat-input { background: #0b132b; border: 1px solid #3a506b; color: white; border-radius: 8px; padding: 12px; flex: 1; }
+        .chat-input-area { padding: 15px; background: #1c2541; border-top: 1px solid #3a506b; display: flex; gap: 10px; align-items: flex-end; }
+        .chat-input { background: #0b132b; border: 1px solid #3a506b; color: white; border-radius: 8px; padding: 10px; flex: 1; resize: none; min-height: 44px; max-height: 150px; font-family: inherit; font-size: 0.95rem; line-height: 1.4; }
         .chat-input:focus { background: #0b132b; color: white; outline: none; border-color: #4361ee; }
 
         .collapsible-card { background: #0b132b; border: 1px solid #3a506b; border-radius: 8px; overflow: hidden; }
         .collapsible-header { padding: 10px 12px; background: #131b2e; color: #4cc9f0; cursor: pointer; font-size: 0.85rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        .collapsible-body { padding: 10px; max-height: 200px; overflow-y: auto; font-size: 0.8rem; }
+        .collapsible-body { padding: 10px; max-height: 250px; overflow-y: auto; font-size: 0.8rem; }
         
         .file-item { display: flex; justify-content: space-between; align-items: center; background: #1c2541; padding: 6px 10px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #3a506b; }
+        .fact-card { background: #1c2541; border: 1px solid #3a506b; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
+        .trust-badge { font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 4px; }
+        .trust-high { background-color: #10b981; color: #ffffff; }
+        .trust-mid { background-color: #f59e0b; color: #000000; }
+        .trust-low { background-color: #ef4444; color: #ffffff; }
+        .fact-cat { font-size: 0.7rem; color: #4cc9f0; float: right; }
     </style>
 </head>
 <body>
@@ -183,37 +189,47 @@ HTML_TEMPLATE = """
     <div class="chat-main">
         <div class="chat-header">
             <div>Активно пространство: <strong class="text-info">{{ current_ws }}</strong></div>
-            <span class="badge bg-success">ROOT Access Active</span>
+            <span class="badge bg-success">N.I.K.I. Trust Engine Active</span>
         </div>
 
         <div class="chat-box" id="chatBox">
-            <div class="msg-bot">Здравей! Аз съм N.I.K.I. Системата е напълно готова за работа.</div>
+            <div class="msg-bot">Здравей! Аз съм N.I.K.I. Системата е напълно готова. Пиши с Enter, а с Shift+Enter минаваш на нов ред!</div>
         </div>
 
         <div class="chat-input-area">
-            <!-- Оправено за предотвратяване на автопопълване на пароли -->
-            <input type="text" id="userInput" name="niki_chat_input" autocomplete="off" class="chat-input" placeholder="Въведете инструкция или команда към N.I.K.I..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button class="btn btn-primary" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i> Изпрати</button>
+            <!-- Многоредово автоматично разширяващо се поле с проверка на правопис -->
+            <textarea id="userInput" name="niki_chat_input" autocomplete="off" spellcheck="true" lang="bg" class="chat-input" placeholder="Въведете инструкция към N.I.K.I... (Enter за изпращане, Shift+Enter за нов ред)" oninput="autoResize(this)" onkeydown="handleKeyDown(event)"></textarea>
+            <button class="btn btn-primary" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
         </div>
     </div>
 
     <!-- Дясна лента със сгъваеми панели -->
     <div class="sidebar-right">
         
-        <!-- Панел Факти -->
+        <!-- Панел Факти с Пластове на Доверие -->
         <div class="collapsible-card">
             <div class="collapsible-header" onclick="toggleSection('factsBody')">
-                <span>🧠 ВЕРИФИЦИРАНИ ФАКТИ</span>
+                <span>🧠 ПЛАСТОВЕ НА ДОВЕРИЕ (ФАКТИ)</span>
                 <i class="fa-solid fa-chevron-down"></i>
             </div>
             <div class="collapsible-body" id="factsBody">
-                <ul class="ps-3 mb-0 text-light">
-                    {% for fact in facts %}
-                    <li class="mb-1">{{ fact }}</li>
-                    {% else %}
-                    <span class="text-muted">Няма регистрирани факти.</span>
-                    {% endfor %}
-                </ul>
+                {% for fact in facts %}
+                <div class="fact-card">
+                    <div>
+                        {% if fact.confidence >= 80 %}
+                        <span class="trust-badge trust-high">🟢 {{ fact.confidence }}% Доверие</span>
+                        {% elif fact.confidence >= 50 %}
+                        <span class="trust-badge trust-mid">🟡 {{ fact.confidence }}% Доверие</span>
+                        {% else %}
+                        <span class="trust-badge trust-low">🔴 {{ fact.confidence }}% Доверие</span>
+                        {% endif %}
+                        <span class="fact-cat">🏷️ {{ fact.category }}</span>
+                    </div>
+                    <div class="text-light mt-1">{{ fact.fact }}</div>
+                </div>
+                {% else %}
+                <span class="text-muted">Няма регистрирани факти.</span>
+                {% endfor %}
             </div>
         </div>
 
@@ -240,14 +256,12 @@ HTML_TEMPLATE = """
                 <span>📁 ФАЙЛОВЕ В БИБЛИОТЕКАТА</span>
                 <i class="fa-solid fa-chevron-down"></i>
             </div>
-            <div class="collapsible-body" id="filesBody" style="max-height: 300px;">
+            <div class="collapsible-body" id="filesBody" style="max-height: 250px;">
                 {% for file in files %}
                 <div class="file-item">
                     <span class="text-truncate" style="max-width: 160px;" title="{{ file.name }}">📄 {{ file.name }}</span>
                     <div>
-                        <!-- Бутон за сваляне -->
                         <a href="/api/download_file?file_name={{ file.name }}&workspace={{ current_ws }}" class="btn btn-primary btn-sm py-0 px-2 me-1" title="Свали файл">📥</a>
-                        <!-- Бутон за изтриване -->
                         <button class="btn btn-danger btn-sm py-0 px-2" onclick="deleteFile('{{ file.name }}')" title="Изтрий файл">🗑️</button>
                     </div>
                 </div>
@@ -262,6 +276,18 @@ HTML_TEMPLATE = """
 
 <script>
     let currentWorkspace = "{{ current_ws }}";
+
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+    }
+
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    }
 
     function toggleSection(id) {
         let el = document.getElementById(id);
@@ -289,8 +315,9 @@ HTML_TEMPLATE = """
         if (!text) return;
 
         let chatBox = document.getElementById('chatBox');
-        chatBox.innerHTML += `<div class="msg-user">${text}</div>`;
+        chatBox.innerHTML += `<div class="msg-user">${escapeHtml(text)}</div>`;
         input.value = '';
+        input.style.height = 'auto';
         chatBox.scrollTop = chatBox.scrollHeight;
 
         fetch('/api/chat', {
@@ -317,7 +344,7 @@ HTML_TEMPLATE = """
         formData.append('workspace', currentWorkspace);
 
         let chatBox = document.getElementById('chatBox');
-        chatBox.innerHTML += `<div class="msg-bot">⏳ Обработвам и качвам файла...</div>`;
+        chatBox.innerHTML += `<div class="msg-bot">⏳ Анализирам документа и извличам пластовете на доверие...</div>`;
 
         fetch('/api/upload', {
             method: 'POST',
@@ -344,6 +371,10 @@ HTML_TEMPLATE = """
             });
         }
     }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
 </script>
 </body>
 </html>
@@ -359,7 +390,19 @@ def index():
 
     facts_path = f"{WORKSPACES_DIR}/{current_ws.lower()}/facts/verified_facts.json"
     facts_str, _ = get_github_file(facts_path)
-    facts = json.loads(facts_str) if facts_str else []
+    raw_facts = json.loads(facts_str) if facts_str else []
+    
+    # Автоматично подреждане/конвертиране на факти в новия формат за пластовете доверие
+    formatted_facts = []
+    for f in raw_facts:
+        if isinstance(f, dict):
+            formatted_facts.append(f)
+        else:
+            formatted_facts.append({
+                "fact": str(f),
+                "category": "GENERAL",
+                "confidence": 90
+            })
 
     tasks_path = f"{WORKSPACES_DIR}/{current_ws.lower()}/tasks/backlog.json"
     tasks_str, _ = get_github_file(tasks_path)
@@ -369,7 +412,7 @@ def index():
                                  workspaces=DEFAULT_WORKSPACES, 
                                  current_ws=current_ws, 
                                  files=files, 
-                                 facts=facts, 
+                                 facts=formatted_facts, 
                                  tasks=tasks)
 
 @app.route('/api/create_workspace', methods=['POST'])
@@ -402,16 +445,34 @@ def upload():
         extracted_text = file_bytes.decode('utf-8', errors='ignore')
 
     if extracted_text:
-        system_prompt = "Ти си N.I.K.I. Извлечи ключови факти и задачи от текста. Върни ВИНАГИ чист JSON: {\"facts\": [\"факт 1\"], \"tasks\": [\"задача 1\"]}"
+        system_prompt = (
+            "Ти си N.I.K.I. Извлечи ключови факти и задачи от текста.\n"
+            "За ВСЕКИ факт определи категория (напр. PHYSICS, HISTORY, INVENTIONS, MARTINALA, GENERAL) "
+            "и confidence score от 1 до 100 (колко сигурен/потвърден е фактът).\n"
+            "Върни ВИНАГИ чист JSON в следния формат:\n"
+            "{\n"
+            '  "facts": [{"fact": "текст на факта", "category": "PHYSICS", "confidence": 95}],\n'
+            '  "tasks": ["задача 1"]\n'
+            "}"
+        )
         ai_res = call_groq_llm([{"role": "user", "content": extracted_text[:4000]}], system_prompt)
         try:
-            parsed = json.loads(ai_res)
+            # Изчистване на евентуални markdown тагове
+            clean_res = ai_res.replace("```json", "").replace("```", "").strip()
+            parsed = json.loads(clean_res)
             
             facts_path = f"{WORKSPACES_DIR}/{workspace}/facts/verified_facts.json"
             facts_str, sha_f = get_github_file(facts_path)
             facts = json.loads(facts_str) if facts_str else []
-            facts.extend(parsed.get("facts", []))
-            save_github_file(facts_path, json.dumps(facts, ensure_ascii=False, indent=2), "Update facts", sha=sha_f)
+            
+            new_facts = parsed.get("facts", [])
+            for item in new_facts:
+                if isinstance(item, str):
+                    facts.append({"fact": item, "category": "GENERAL", "confidence": 90})
+                elif isinstance(item, dict):
+                    facts.append(item)
+                    
+            save_github_file(facts_path, json.dumps(facts, ensure_ascii=False, indent=2), "Update facts with Trust Levels", sha=sha_f)
 
             tasks_path = f"{WORKSPACES_DIR}/{workspace}/tasks/backlog.json"
             tasks_str, sha_t = get_github_file(tasks_path)
@@ -422,7 +483,7 @@ def upload():
         except Exception as e:
             print(f"Грешка при AI анализ: {e}")
 
-    return jsonify({"message": f"Файлът '{file_name}' бе качен и анализиран!"})
+    return jsonify({"message": f"Файлът '{file_name}' бе качен и анализиран успешно!"})
 
 @app.route('/api/download_file')
 def download_file():
@@ -466,12 +527,11 @@ def chat():
     facts_str, _ = get_github_file(facts_path)
     facts = json.loads(facts_str) if facts_str else []
 
-    system_prompt = f"Ти си N.I.K.I. - автономен AI асистент в проект '{workspace.upper()}'. Факти: {json.dumps(facts, ensure_ascii=False)}. Отговаряй точно и професионално на български език."
+    system_prompt = f"Ти си N.I.K.I. - автономен AI асистент в проект '{workspace.upper()}'. Верифицирани факти и нива на доверие: {json.dumps(facts, ensure_ascii=False)}. Отговаряй точно и професионално на български език."
     
     if user_msg.lower().startswith("генерирай документ") or user_msg.lower().startswith("създай файл"):
         doc_title = f"Резюме_{workspace.upper()}"
         
-        # Запитване към AI за съдържанието
         content_prompt = f"Напиши подробно и структурирано резюме за проект {workspace.upper()} въз основа на известните факти: {json.dumps(facts, ensure_ascii=False)}"
         summary_text = call_groq_llm([{"role": "user", "content": content_prompt}])
         
