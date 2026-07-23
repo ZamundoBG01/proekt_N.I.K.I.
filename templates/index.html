@@ -4,58 +4,65 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>N.I.K.I. - Worldbuilding & Simulations</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --panel-bg: rgba(30, 41, 59, 0.8);
-            --accent-color: #38bdf8;
-            --accent-hover: #0284c7;
-            --text-main: #f8fafc;
-            --border-color: rgba(255, 255, 255, 0.12);
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --accent-blue: #58a6ff;
+            --accent-green: #238636;
+            --accent-red: #da3633;
+            --user-msg-bg: #1f6feb;
+            --bot-msg-bg: #21262d;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 15px;
+            padding: 20px;
             display: flex;
             justify-content: center;
             height: 100vh;
             box-sizing: border-box;
         }
 
-        .app-container {
-            display: flex;
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
             width: 100%;
-            max-width: 1500px;
-            gap: 15px;
-            height: 100%;
+            max-width: 1400px;
+            height: calc(100vh - 40px);
         }
 
-        .main-chat {
-            flex: 3;
+        .chat-section {
             display: flex;
             flex-direction: column;
-            background: var(--panel-bg);
-            backdrop-filter: blur(10px);
-            border-radius: 10px;
+            background-color: var(--panel-bg);
             border: 1px solid var(--border-color);
+            border-radius: 8px;
             overflow: hidden;
         }
 
         .chat-header {
-            padding: 12px 20px;
-            background: rgba(15, 23, 42, 0.9);
+            padding: 15px 20px;
+            background-color: #21262d;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .chat-messages {
+        .chat-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #f0f6fc;
+        }
+
+        .chat-history {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
@@ -65,55 +72,48 @@
         }
 
         .message {
-            max-width: 88%;
-            padding: 12px 18px;
+            max-width: 85%;
+            padding: 12px 16px;
             border-radius: 8px;
-            line-height: 1.6;
-            font-size: 15px;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
         }
 
         .message.user {
             align-self: flex-end;
-            background: #0369a1;
-            color: #fff;
+            background-color: var(--user-msg-bg);
+            color: #ffffff;
         }
 
         .message.niki {
             align-self: flex-start;
-            background: rgba(51, 65, 85, 0.85);
+            background-color: var(--bot-msg-bg);
             border: 1px solid var(--border-color);
         }
 
-        .monologue-btn {
-            background: none;
-            border: none;
-            color: var(--accent-color);
-            cursor: pointer;
-            padding: 5px 0;
-            font-size: 0.9em;
-            text-decoration: underline;
-            display: block;
-            margin-top: 8px;
+        .thought-box {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #0d1117;
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #8b949e;
         }
 
-        .monologue-content {
-            display: none;
-            background: rgba(15, 23, 42, 0.8);
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.88em;
-            color: #cbd5e1;
-            margin-top: 6px;
-            white-space: pre-wrap;
-            border-left: 3px solid var(--accent-color);
+        .thought-toggle {
+            cursor: pointer;
+            color: var(--accent-blue);
+            font-size: 0.85rem;
+            margin-top: 5px;
+            display: inline-block;
         }
 
         .input-area {
-            padding: 12px 15px;
+            padding: 15px;
+            background-color: #21262d;
             border-top: 1px solid var(--border-color);
-            background: rgba(15, 23, 42, 0.9);
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -123,158 +123,352 @@
             display: flex;
             gap: 10px;
             align-items: center;
-            justify-content: space-between;
         }
 
         textarea {
-            width: 100%;
-            height: 80px;
-            background: rgba(30, 41, 59, 0.95);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: #fff;
-            padding: 10px 12px;
-            resize: vertical;
-            box-sizing: border-box;
-            font-size: 15px;
-            font-family: inherit;
-            line-height: 1.4;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        textarea:focus {
-            outline: 1px solid var(--accent-color);
-        }
-
-        button.send-btn {
-            background: var(--accent-color);
-            color: #000;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            font-size: 15px;
-        }
-
-        button.send-btn:hover {
-            background: var(--accent-hover);
-            color: #fff;
-        }
-
-        .side-panel {
             flex: 1;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            resize: none;
+            height: 50px;
+            font-family: inherit;
+        }
+
+        button {
+            background-color: var(--accent-green);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        .btn-danger { background-color: var(--accent-red); }
+
+        .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            min-width: 320px;
+            gap: 15px;
         }
 
-        .panel-box {
-            background: var(--panel-bg);
+        .panel {
+            background-color: var(--panel-bg);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 12px 15px;
-            flex: 1;
-            overflow-y: auto;
+            border-radius: 8px;
+            padding: 15px;
         }
 
-        .workspace-select {
+        .panel h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: #f0f6fc;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        select, input[type="text"] {
             width: 100%;
             padding: 8px;
-            background: #1e293b;
-            color: #fff;
+            background-color: var(--bg-color);
             border: 1px solid var(--border-color);
+            color: #fff;
             border-radius: 6px;
+            box-sizing: border-box;
             margin-bottom: 8px;
-            font-size: 14px;
+        }
+
+        .ws-select-row {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 8px;
         }
 
         .file-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(15, 23, 42, 0.6);
-            padding: 8px 10px;
-            border-radius: 6px;
-            margin-bottom: 6px;
-            font-size: 0.88em;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85rem;
         }
 
-        .download-link {
-            color: var(--accent-color);
+        .file-item a {
+            color: var(--accent-blue);
             text-decoration: none;
-            font-weight: bold;
         }
 
-        .autorun-toggle {
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--accent-red);
+            cursor: pointer;
+            padding: 2px 5px;
+            font-size: 0.9rem;
+        }
+
+        .btn-icon:hover { opacity: 0.8; }
+
+        .fact-item {
+            font-size: 0.85rem;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-color);
+            color: #8b949e;
+        }
+
+        .auto-run-check {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 0.9em;
-            color: var(--accent-color);
-            cursor: pointer;
-        }
-
-        .expand-facts-btn {
-            background: none;
-            border: none;
-            color: var(--accent-color);
-            cursor: pointer;
-            padding: 4px 0;
-            font-size: 0.85em;
-            text-decoration: underline;
+            font-size: 0.85rem;
+            color: var(--accent-blue);
         }
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    <div class="main-chat">
+<div class="container">
+    <!-- ЧАТ ЗОНА -->
+    <div class="chat-section">
         <div class="chat-header">
-            <h2 style="margin:0; font-size:18px;">N.I.K.I. - Worldbuilding & Simulations</h2>
-            <span id="active-ws-title" style="color:var(--accent-color); font-weight:bold;">Проект: GENERAL</span>
+            <h2>N.I.K.I. - Worldbuilding & Simulations</h2>
+            <span id="current-ws-label" style="color: var(--accent-blue); font-weight: bold;">Проект: GENERAL</span>
         </div>
-        <div class="chat-messages" id="chat-messages">
+
+        <div class="chat-history" id="chat-history">
+            <!-- Чата ще се зареди тук -->
         </div>
+
         <div class="input-area">
-            <textarea id="user-input" spellcheck="true" placeholder="Напиши инструкция тук... (Enter за изпращане, Shift+Enter за нов ред)"></textarea>
+            <textarea id="user-input" placeholder="Напиши инструкция тук... (Enter за изпращане, Shift+Enter за нов ред)"></textarea>
             <div class="input-controls">
-                <label class="autorun-toggle">
-                    <input type="checkbox" id="autorun-check"> 🔄 Автоматичен режим (Auto-Run 24/7)
+                <label class="auto-run-check">
+                    <input type="checkbox" id="auto-run-toggle"> 🔄 Автоматичен режим (Auto-Run 24/7)
                 </label>
-                <button class="send-btn" onclick="sendMessage()">Изпрати</button>
+                <div style="flex:1;"></div>
+                <button onclick="sendMessage()">Изпрати</button>
             </div>
         </div>
     </div>
 
-    <div class="side-panel">
-        <div class="panel-box">
-            <h3 style="margin-top:0; font-size:15px;">📂 Избор на Проект</h3>
-            <select id="workspace-select" class="workspace-select" onchange="switchWorkspace()">
-            </select>
-            <div style="display:flex; gap:5px;">
-                <input type="text" id="new-ws-name" placeholder="Нов проект..." style="flex:1; padding:6px; background:#1e293b; color:#fff; border:1px solid var(--border-color); border-radius:4px;">
-                <button onclick="createWorkspace()" style="padding:6px 12px; background:var(--accent-color); border:none; border-radius:4px; font-weight:bold; cursor:pointer;">+</button>
+    <!-- СРАНИЧЕН ПАНЕЛ -->
+    <div class="sidebar">
+        <!-- Избор на Проект -->
+        <div class="panel">
+            <h3>📁 Избор на Проект</h3>
+            <div class="ws-select-row">
+                <select id="ws-select" onchange="switchWorkspace()"></select>
+                <button class="btn-danger" title="Изтрий текущия проект" onclick="deleteCurrentWorkspace()">🗑️</button>
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="new-ws-name" placeholder="Нов проект...">
+                <button onclick="createWorkspace()">+</button>
             </div>
         </div>
 
-        <div class="panel-box">
-            <h3 style="margin-top:0; font-size:15px;">📚 Библиотека & Документи (.docx)</h3>
+        <!-- Библиотека и Документи -->
+        <div class="panel">
+            <h3>📚 Библиотека & Документи (.docx)</h3>
             <div id="file-list"></div>
+            <div style="margin-top: 10px;">
+                <input type="file" id="file-upload" style="display: none;" onchange="uploadFile()">
+                <button onclick="document.getElementById('file-upload').click()" style="width: 100%; background-color: #21262d; border: 1px solid var(--border-color);">📤 Качи файл</button>
+            </div>
         </div>
 
-        <div class="panel-box">
-            <h3 style="margin-top:0; font-size:15px;">🧠 Факти в Базата Данни</h3>
-            <div id="facts-container" style="font-size: 0.88em;"></div>
+        <!-- База Факти -->
+        <div class="panel" style="flex: 1; overflow-y: auto;">
+            <h3>📌 Факти в Базата Данни</h3>
+            <div id="facts-list"></div>
         </div>
     </div>
 </div>
 
 <script>
-    let currentWorkspace = "general";
+    let activeWorkspace = "general";
+
+    async function loadWorkspaces() {
+        const res = await fetch("/workspaces");
+        const data = await res.json();
+        const select = document.getElementById("ws-select");
+        select.innerHTML = "";
+        data.workspaces.forEach(ws => {
+            const opt = document.createElement("option");
+            opt.value = ws;
+            opt.textContent = ws.toUpperCase();
+            if(ws === activeWorkspace) opt.selected = true;
+            select.appendChild(opt);
+        });
+        document.getElementById("current-ws-label").textContent = `Проект: ${activeWorkspace.toUpperCase()}`;
+        loadWorkspaceData();
+    }
+
+    async function loadWorkspaceData() {
+        const res = await fetch(`/workspace_data/${activeWorkspace}`);
+        const data = await res.json();
+        
+        // Зареждане на чат
+        const chatContainer = document.getElementById("chat-history");
+        chatContainer.innerHTML = "";
+        data.chat_history.forEach(msg => {
+            appendMessageToUI(msg.sender, msg.message, msg.monologue);
+        });
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Зареждане на файлове (с червено хиксче ❌ за изтриване)
+        const fileList = document.getElementById("file-list");
+        fileList.innerHTML = "";
+        if (data.files.length === 0) {
+            fileList.innerHTML = `<span style="color:#8b949e; font-size:0.85rem;">Няма налични файлове.</span>`;
+        } else {
+            data.files.forEach(f => {
+                fileList.innerHTML += `
+                    <div class="file-item">
+                        <span title="${f}">${f.length > 18 ? f.substring(0,15)+'...' : f}</span>
+                        <div class="file-actions">
+                            <a href="/download/${activeWorkspace}/${encodeURIComponent(f)}" target="_blank">[Свали]</a>
+                            <button class="btn-icon" onclick="deleteFile('${f}')" title="Изтрий файла">❌</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Зареждане на факти
+        const factsList = document.getElementById("facts-list");
+        factsList.innerHTML = "";
+        if (data.facts.length === 0) {
+            factsList.innerHTML = `<span style="color:#8b949e; font-size:0.85rem;">Няма записани факти.</span>`;
+        } else {
+            data.facts.forEach(fact => {
+                factsList.innerHTML += `<div class="fact-item">• ${fact.content}</div>`;
+            });
+        }
+    }
+
+    function appendMessageToUI(sender, text, monologue) {
+        const chatContainer = document.getElementById("chat-history");
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `message ${sender === 'user' ? 'user' : 'niki'}`;
+        msgDiv.textContent = text;
+
+        if (monologue && sender !== 'user') {
+            const toggle = document.createElement("div");
+            toggle.className = "thought-toggle";
+            toggle.textContent = "🔍 Виж вътрешен монолог / мисли";
+            
+            const thoughtBox = document.createElement("div");
+            thoughtBox.className = "thought-box";
+            thoughtBox.style.display = "none";
+            thoughtBox.textContent = monologue;
+
+            toggle.onclick = () => {
+                thoughtBox.style.display = thoughtBox.style.display === "none" ? "block" : "none";
+            };
+
+            msgDiv.appendChild(document.createElement("br"));
+            msgDiv.appendChild(toggle);
+            msgDiv.appendChild(thoughtBox);
+        }
+
+        chatContainer.appendChild(msgDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById("user-input");
+        const text = input.value.trim();
+        const autoRun = document.getElementById("auto-run-toggle").checked;
+        if (!text) return;
+
+        appendMessageToUI("user", text);
+        input.value = "";
+
+        const res = await fetch("/chat", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ message: text, workspace: activeWorkspace, auto_run: autoRun })
+        });
+        const data = await res.json();
+        
+        if (data.target_workspace) {
+            activeWorkspace = data.target_workspace;
+            loadWorkspaces();
+        } else {
+            appendMessageToUI("niki", data.reply, data.monologue);
+            loadWorkspaceData();
+        }
+    }
+
+    async function switchWorkspace() {
+        activeWorkspace = document.getElementById("ws-select").value;
+        document.getElementById("current-ws-label").textContent = `Проект: ${activeWorkspace.toUpperCase()}`;
+        loadWorkspaceData();
+    }
+
+    async function createWorkspace() {
+        const input = document.getElementById("new-ws-name");
+        const name = input.value.trim();
+        if (!name) return;
+        await fetch("/workspaces", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ name: name })
+        });
+        activeWorkspace = name;
+        input.value = "";
+        loadWorkspaces();
+    }
+
+    async function deleteCurrentWorkspace() {
+        if (activeWorkspace === "general") {
+            alert("Проектът GENERAL не може да бъде изтрит!");
+            return;
+        }
+        if (confirm(`Сигурни ли сте, че искате да изтриете целия проект "${activeWorkspace.toUpperCase()}"?`)) {
+            await fetch("/chat", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ message: `изтрий проект ${activeWorkspace}`, workspace: activeWorkspace })
+            });
+            activeWorkspace = "general";
+            loadWorkspaces();
+        }
+    }
+
+    async function deleteFile(filename) {
+        if (confirm(`Сигурни ли сте, че искате да изтриете файла "${filename}"?`)) {
+            await fetch("/delete_file", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ workspace: activeWorkspace, filename: filename })
+            });
+            loadWorkspaceData();
+        }
+    }
+
+    async function uploadFile() {
+        const fileInput = document.getElementById("file-upload");
+        if (fileInput.files.length === 0) return;
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        formData.append("workspace", activeWorkspace);
+
+        await fetch("/upload", { method: "POST", body: formData });
+        fileInput.value = "";
+        loadWorkspaceData();
+    }
 
     document.getElementById("user-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -283,154 +477,7 @@
         }
     });
 
-    async function loadWorkspaces() {
-        try {
-            const res = await fetch("/workspaces");
-            const data = await res.json();
-            const select = document.getElementById("workspace-select");
-            select.innerHTML = "";
-            data.workspaces.forEach(ws => {
-                const opt = document.createElement("option");
-                opt.value = ws;
-                opt.innerText = ws.toUpperCase();
-                if(ws === currentWorkspace) opt.selected = true;
-                select.appendChild(opt);
-            });
-            loadWorkspaceData();
-        } catch(e) { console.error("Workspaces load error:", e); }
-    }
-
-    async function switchWorkspace() {
-        currentWorkspace = document.getElementById("workspace-select").value;
-        document.getElementById("active-ws-title").innerText = "Проект: " + currentWorkspace.toUpperCase();
-        loadWorkspaceData();
-    }
-
-    async function createWorkspace() {
-        const name = document.getElementById("new-ws-name").value.trim();
-        if(!name) return;
-        await fetch("/workspaces", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({name: name})
-        });
-        document.getElementById("new-ws-name").value = "";
-        currentWorkspace = name.toLowerCase().replace(/\s+/g, '_');
-        loadWorkspaces();
-    }
-
-    async function loadWorkspaceData() {
-        try {
-            const res = await fetch(`/workspace_data/${currentWorkspace}`);
-            const data = await res.json();
-            
-            // Чат история
-            const chatBox = document.getElementById("chat-messages");
-            chatBox.innerHTML = "";
-            data.chat_history.forEach(msg => {
-                appendMessage(msg.sender, msg.message, msg.monologue);
-            });
-
-            // Файлове
-            const fileList = document.getElementById("file-list");
-            fileList.innerHTML = "";
-            data.files.forEach(file => {
-                fileList.innerHTML += `
-                    <div class="file-item">
-                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">📄 ${file}</span>
-                        <a href="/download/${currentWorkspace}/${file}" class="download-link" download>[Свали]</a>
-                    </div>
-                `;
-            });
-
-            // Компактни Факти (Показваме само последния + [+] бутон за останалите)
-            const factsContainer = document.getElementById("facts-container");
-            factsContainer.innerHTML = "";
-            
-            if (data.facts.length === 0) {
-                factsContainer.innerHTML = "<p style='color:#94a3b8;'>Няма записани факти.</p>";
-            } else {
-                const latest = data.facts[0];
-                let html = `<p style="margin:0 0 6px 0; font-weight:bold; color:#e2e8f0;">📌 Последен факт:</p>`;
-                html += `<p style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px; margin:0 0 8px 0;">• ${latest.content}</p>`;
-
-                if (data.facts.length > 1) {
-                    html += `<button class="expand-facts-btn" onclick="toggleFacts()">[+] Виж всички факти (${data.facts.length})</button>`;
-                    html += `<div id="all-facts-list" style="display:none; margin-top:8px;">`;
-                    for (let i = 1; i < data.facts.length; i++) {
-                        html += `<p style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px; margin:4px 0; color:#cbd5e1;">• ${data.facts[i].content}</p>`;
-                    }
-                    html += `</div>`;
-                }
-                factsContainer.innerHTML = html;
-            }
-
-        } catch(e) { console.error("Workspace data error:", e); }
-    }
-
-    function toggleFacts() {
-        const el = document.getElementById("all-facts-list");
-        if (el) {
-            el.style.display = el.style.display === "block" ? "none" : "block";
-        }
-    }
-
-    function appendMessage(sender, text, monologue) {
-        const chatBox = document.getElementById("chat-messages");
-        const msgDiv = document.createElement("div");
-        msgDiv.className = `message ${sender}`;
-        
-        let html = marked.parse(text);
-        if(monologue) {
-            const monoId = 'mono-' + Math.random().toString(36).substr(2, 9);
-            html += `
-                <button class="monologue-btn" onclick="toggleMono('${monoId}')">🔍 Виж вътрешен монолог / мисли</button>
-                <div id="${monoId}" class="monologue-content">${monologue}</div>
-            `;
-        }
-        
-        msgDiv.innerHTML = html;
-        chatBox.appendChild(msgDiv);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    function toggleMono(id) {
-        const el = document.getElementById(id);
-        el.style.display = el.style.display === "block" ? "none" : "block";
-    }
-
-    async function sendMessage() {
-        const input = document.getElementById("user-input");
-        const msg = input.value.trim();
-        const autoRun = document.getElementById("autorun-check").checked;
-        if(!msg) return;
-
-        appendMessage("user", msg);
-        input.value = "";
-
-        try {
-            const res = await fetch("/chat", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    message: msg,
-                    workspace: currentWorkspace,
-                    auto_run: autoRun
-                })
-            });
-
-            const data = await res.json();
-            appendMessage("niki", data.reply, data.monologue);
-            
-            // Презареждаме само списъка с файлове и фактите, БЕЗ да чистим чата!
-            loadWorkspaceData();
-        } catch (err) {
-            appendMessage("niki", "❌ Грешка при изпращане на съобщението.", err.toString());
-        }
-    }
-
     loadWorkspaces();
 </script>
-
 </body>
 </html>
