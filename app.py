@@ -66,7 +66,6 @@ def extract_text_from_file(file_path):
             for paragraph in doc.paragraphs:
                 extracted_text += paragraph.text + "\n"
         elif ext in [".txt", ".json", ".md"]:
-            # Пробваме UTF-8, а ако подразбирането сработи - CP1251 (стандартен Windows BG)
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     extracted_text = f.read()
@@ -98,33 +97,37 @@ def safe_write_json(file_path, data):
         print(f"Грешка при запис в {file_path}: {e}")
         return False
 
-def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
+def call_ai_engine(prompt, context_facts=[], file_list=[], library_context="", causal_graph=[]):
     if not groq_client:
         return {
             "reply": f"Обработена инструкция: {prompt}",
-            "thought": "Липсва GROQ_API_KEY. Системата работи в локален режим.",
-            "extracted_fact": None
+            "thought": "Липсва GROQ_API_KEY. Системата работи в локален режим."
         }
 
     try:
         files_str = ", ".join(file_list) if file_list else "Няма качени файлове"
 
         system_instructions = f"""
-        Ти си N.I.K.I. - изключително аналитичен асистент за писатели и гейм-разработчици.
-        
+        Ти си N.I.K.I. - пазител на логиката и причинно-следствените връзки ("Ефекта на пеперудата") за писатели и гейм-разработчици.
+
         СПИСЪК НА ВСИЧКИ ФАЙЛОВЕ В БИБЛИОТЕКАТА ({len(file_list)} бр.):
         [{files_str}]
 
         ПРОВЕРЕНИ ФАКТИ В ПРОЕКТА:
         {json.dumps(context_facts, ensure_ascii=False)}
 
-        СЪДЪРЖАНИЕ НА ФАЙЛОВЕТЕ:
-        {library_context[:6000] if library_context else 'Файловете са празни или не съдържат четим текст.'}
+        ВЕРИГИ НА ПРИЧИННО-СЛЕДСТВЕНИ ВРЪЗКИ (ЕФЕКТ НА ПЕПЕРУДАТА):
+        {json.dumps(causal_graph, ensure_ascii=False)}
 
-        ПРАВИЛА:
-        1. Когато те питат за броя или имената на файловете, ползвай СПИСЪК НА ВСИЧКИ ФАЙЛОВЕ.
-        2. Ако файлът е празен, кажи че го има, но е без текст.
-        3. Отговаряй ВИНАГИ на правилен български език.
+        СЪДЪРЖАНИЕ НА КАЧЕНИТЕ ФАЙЛОВЕ:
+        {library_context[:6000] if library_context else 'Няма допълнителен текст в файловете.'}
+
+        ПРАВИЛА ЗА РАБОТА И АНАЛИЗ НА "ЕФЕКТА НА ПЕПЕРУДАТА":
+        1. Винаги следи дали новият текст от потребителя противоречи на установените факти или причинно-следствени вериги.
+        2. Ако откриеш логически конфликт (напр. суша -> срив в храната, а потребителят пише, че популацията расте), ЗАДЪЛЖИТЕЛНО започни отговора си с:
+           "⚠️ **ЛОГИЧЕСКА АЛАРМА (Ефект на пеперудата):**" и обясни ясно причинно-следствената грешка.
+        3. Ако потребителят въвежда нов важен факт или събитие, обясни какви верижни последствия ("ефект на пеперудата") очакваш да има това в света/играта.
+        4. Отговаряй ВИНАГИ на правилен български език.
         """
 
         response = groq_client.chat.completions.create(
@@ -133,7 +136,7 @@ def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
                 {"role": "system", "content": system_instructions},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.5,
+            temperature=0.4,
             max_tokens=1500
         )
 
@@ -142,14 +145,12 @@ def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
 
         return {
             "reply": cleaned_reply,
-            "thought": f"AI Engine: Groq (Llama 3.3 70B)\n- Открити файлове: {len(file_list)}\n- Четене от библиотека: {'Да' if library_context else 'Не'}",
-            "extracted_fact": None
+            "thought": f"AI Engine: Groq (Llama 3.3 70B)\n- Сканирани факти: {len(context_facts)}\n- Логически вериги: {len(causal_graph)}\n- Файлове в библиотека: {len(file_list)}"
         }
     except Exception as e:
         return {
             "reply": f"Грешка при комуникация с AI модела: {str(e)}",
-            "thought": f"Грешка: {str(e)}",
-            "extracted_fact": None
+            "thought": f"Грешка: {str(e)}"
         }
 
 @app.route("/")
@@ -225,7 +226,10 @@ def chat():
 
     ws_path = os.path.join(WORKSPACES_DIR, active_ws)
     facts_path = os.path.join(ws_path, "facts", "verified_facts.json")
+    causal_path = os.path.join(ws_path, "facts", "causal_graph.json")
+    
     existing_facts = safe_read_json(facts_path)
+    causal_graph = safe_read_json(causal_path)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Списък и четене на файлове
@@ -237,7 +241,7 @@ def chat():
         for fname in file_list:
             fpath = os.path.join(library_path, fname)
             extracted = extract_text_from_file(fpath)
-            library_text += f"\n--- ФАЙЛ: {fname} ---\n" + (extracted if extracted else "[ПРАЗЕН ФАЙЛ ИЛИ НЕЧЕТИМ ТЕКСТ]")
+            library_text += f"\n--- ФАЙЛ: {fname} ---\n" + (extracted if extracted else "[ПРАЗЕН ФАЙЛ]")
 
     # КОМАНДА: ИЗТРИВАНЕ НА ПРОЕКТ
     match_del = re.match(r"^изтрий проект\s+(.+)$", message, re.IGNORECASE)
@@ -251,7 +255,66 @@ def chat():
             shutil.rmtree(target_path)
             return jsonify({"reply": f"🗑️ Проектът **{target_ws.upper()}** беше изтрит завинаги.", "monologue": f"Изтриване: {target_ws}", "target_workspace": "general"})
 
-    ai_result = call_ai_engine(message, existing_facts, file_list, library_text)
+    # КОМАНДА: ПРЕИМЕНУВАНЕ НА ПРОЕКТ
+    match_ren = re.match(r"^преименувай проект\s+(.+)\s+на\s+(.+)$", message, re.IGNORECASE)
+    if match_ren:
+        old_ws = sanitize_ws_name(match_ren.group(1))
+        new_ws = sanitize_ws_name(match_ren.group(2))
+
+        if old_ws == "general":
+            return jsonify({"reply": "⚠️ Основният проект **GENERAL** не може да бъде преименуван.", "monologue": "Отказана операция."})
+
+        old_path = os.path.join(WORKSPACES_DIR, old_ws)
+        new_path = os.path.join(WORKSPACES_DIR, new_ws)
+
+        if not os.path.exists(old_path):
+            return jsonify({"reply": f"❌ Проектът **{old_ws}** не съществува.", "monologue": "Грешка при преименуване."})
+
+        if os.path.exists(new_path):
+            return jsonify({"reply": f"⚠️ Вече съществува проект с име **{new_ws}**.", "monologue": "Дублирано име."})
+
+        os.rename(old_path, new_path)
+        return jsonify({"reply": f"✏️ Проектът **{old_ws.upper()}** беше преименуван на **{new_ws.upper()}**.", "monologue": "Успешно преименуване.", "target_workspace": new_ws})
+
+    if "изтрий всичко" in message.lower():
+        safe_write_json(facts_path, [])
+        safe_write_json(causal_path, [])
+        return jsonify({
+            "reply": f"🗑️ Всички факти и логически вериги в проект **{active_ws.upper()}** бяха изчистени.",
+            "monologue": "Изчистване на локалната база данни.",
+            "target_workspace": active_ws
+        })
+
+    is_save_command = any(kw in message.lower() for kw in ["запиши", "добави факт", "дневник:"])
+
+    if is_save_command:
+        clean_text = re.sub(r"^(запиши предното съобщение|запиши|добави факт|дневник:)\s*:?", "", message, flags=re.IGNORECASE).strip()
+        if not clean_text:
+            clean_text = message
+
+        new_fact = {
+            "content": clean_text,
+            "timestamp": now_str,
+            "confidence": 100,
+            "category": "ДИРЕКТЕН ЗАПИС"
+        }
+        existing_facts.append(new_fact)
+        safe_write_json(facts_path, existing_facts)
+
+        # Автоматично генериране на верига за Ефекта на пеперудата
+        causal_graph.append({"cause": clean_text, "added_on": now_str})
+        safe_write_json(causal_path, causal_graph)
+
+        reply = f"✅ Записах следното във фактите и логическата верига на **{active_ws.upper()}**:\n\n> \"{clean_text}\""
+        monologue = f"Запис във фактите:\n- Съдържание: '{clean_text}'\n- Проект: {active_ws.upper()}"
+
+        return jsonify({
+            "reply": reply,
+            "monologue": monologue,
+            "target_workspace": active_ws
+        })
+
+    ai_result = call_ai_engine(message, existing_facts, file_list, library_text, causal_graph)
 
     return jsonify({
         "reply": ai_result["reply"],
