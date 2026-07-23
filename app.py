@@ -20,7 +20,6 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
-# --- ИНИЦИАЛИЗАЦИЯ НА БАЗАТА ДАННИ ---
 def get_db_connection():
     if not DATABASE_URL:
         return None
@@ -36,7 +35,6 @@ def init_db():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Таблица за факти
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS verified_facts (
                         id SERIAL PRIMARY KEY,
@@ -47,12 +45,21 @@ def init_db():
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
-                # Таблица за причинно-следствени вериги
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS causal_chains (
                         id SERIAL PRIMARY KEY,
                         workspace VARCHAR(100) NOT NULL,
                         cause TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                # ТАБЛИЦА ЗА ИСТОРИЯ НА ЧАТА
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS chat_history (
+                        id SERIAL PRIMARY KEY,
+                        workspace VARCHAR(100) NOT NULL,
+                        sender VARCHAR(20) NOT NULL,
+                        message TEXT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
@@ -62,7 +69,6 @@ def init_db():
         finally:
             conn.close()
 
-# Стартираме базата при пускане
 init_db()
 
 def sanitize_ws_name(name):
@@ -125,7 +131,6 @@ def extract_text_from_file(file_path):
         print(f"Грешка при извличане на текст от {file_path}: {e}")
     return extracted_text.strip()
 
-# --- ФУНКЦИИ ЗА РАБОТА С ФАКТИ (DB + ФАЙЛОВЕН БЕКЪП) ---
 def get_workspace_facts(ws_name):
     conn = get_db_connection()
     if conn:
@@ -147,7 +152,6 @@ def get_workspace_facts(ws_name):
         finally:
             conn.close()
 
-    # Резервен вариант през JSON
     facts_path = os.path.join(WORKSPACES_DIR, ws_name, "facts", "verified_facts.json")
     if os.path.exists(facts_path):
         try:
@@ -170,7 +174,6 @@ def add_workspace_fact(ws_name, content, category="ДИРЕКТЕН ЗАПИС")
         finally:
             conn.close()
 
-    # Записваме и във файловата система като бекъп
     ws_path = os.path.join(WORKSPACES_DIR, ws_name, "facts")
     os.makedirs(ws_path, exist_ok=True)
     facts_file = os.path.join(ws_path, "verified_facts.json")
@@ -187,6 +190,36 @@ def add_workspace_fact(ws_name, content, category="ДИРЕКТЕН ЗАПИС")
             json.dump(existing, f, ensure_ascii=False, indent=2)
     except: pass
 
+# --- ЧАТ ИСТОРИЯ (DB) ---
+def save_chat_message(ws_name, sender, message):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO chat_history (workspace, sender, message) VALUES (%s, %s, %s);", (ws_name, sender, message))
+                conn.commit()
+        except Exception as e: print(f"Chat DB Save Error: {e}")
+        finally: conn.close()
+
+def get_chat_history(ws_name):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT sender, message, created_at FROM chat_history WHERE workspace = %s ORDER BY id ASC;", (ws_name,))
+                rows = cur.fetchall()
+                history = []
+                for r in rows:
+                    history.append({
+                        "sender": r["sender"],
+                        "message": r["message"],
+                        "timestamp": r["created_at"].strftime("%H:%M") if r["created_at"] else ""
+                    })
+                return history
+        except Exception as e: print(f"Chat DB Read Error: {e}")
+        finally: conn.close()
+    return []
+
 def clear_workspace_data(ws_name):
     conn = get_db_connection()
     if conn:
@@ -194,11 +227,11 @@ def clear_workspace_data(ws_name):
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM verified_facts WHERE workspace = %s;", (ws_name,))
                 cur.execute("DELETE FROM causal_chains WHERE workspace = %s;", (ws_name,))
+                cur.execute("DELETE FROM chat_history WHERE workspace = %s;", (ws_name,))
                 conn.commit()
         except Exception as e: print(f"DB Clear Error: {e}")
         finally: conn.close()
 
-# --- AI ДВИГАТЕЛ ЗА "ЕФЕКТА НА ПЕПЕРУДАТА" ---
 def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
     if not groq_client:
         return {
@@ -295,6 +328,7 @@ def handle_workspaces():
 def workspace_data(ws_name):
     clean_ws = sanitize_ws_name(ws_name)
     facts = get_workspace_facts(clean_ws)
+    chat_history = get_chat_history(clean_ws)
 
     library_path = os.path.join(WORKSPACES_DIR, clean_ws, "library")
     files = []
@@ -304,6 +338,7 @@ def workspace_data(ws_name):
 
     return jsonify({
         "facts": facts,
+        "chat_history": chat_history,
         "tasks": [],
         "files": files
     })
@@ -317,9 +352,11 @@ def chat():
     if not message:
         return jsonify({"reply": "Моля, въведете инструкция.", "monologue": None})
 
+    # Запазваме въпроса на потребителя в базата данни
+    save_chat_message(active_ws, "user", message)
+
     existing_facts = get_workspace_facts(active_ws)
 
-    # Четене на файлове
     library_path = os.path.join(WORKSPACES_DIR, active_ws, "library")
     file_list = []
     library_text = ""
@@ -330,24 +367,28 @@ def chat():
             extracted = extract_text_from_file(fpath)
             library_text += f"\n--- ФАЙЛ: {fname} ---\n" + (extracted if extracted else "[ПРАЗЕН ФАЙЛ]")
 
-    # ГЪВКАВА КОМАНДА ЗА ИЗТРИВАНЕ
     match_del = re.match(r"^(изтрий|премахни)(\s+проект|\s+директория)?\s+(.+)$", message, re.IGNORECASE)
     if match_del:
         target_ws = sanitize_ws_name(match_del.group(3))
         if target_ws == "general":
-            return jsonify({"reply": "⚠️ Основният проект **GENERAL** не може да бъде изтрит.", "monologue": "Отказано изтриване."})
+            reply_msg = "⚠️ Основният проект **GENERAL** не може да бъде изтрит."
+            save_chat_message(active_ws, "niki", reply_msg)
+            return jsonify({"reply": reply_msg, "monologue": "Отказано изтриване."})
         
         clear_workspace_data(target_ws)
         target_path = os.path.join(WORKSPACES_DIR, target_ws)
         if os.path.exists(target_path):
             shutil.rmtree(target_path)
 
-        return jsonify({"reply": f"🗑️ Проектът/директорията **{target_ws.upper()}** беше изтрит(а) завинаги (и от базата данни).", "monologue": f"Изтриване: {target_ws}", "target_workspace": "general"})
+        reply_msg = f"🗑️ Проектът/директорията **{target_ws.upper()}** беше изтрит(а) завинаги."
+        return jsonify({"reply": reply_msg, "monologue": f"Изтриване: {target_ws}", "target_workspace": "general"})
 
     if "изтрий всичко" in message.lower():
         clear_workspace_data(active_ws)
+        reply_msg = f"🗑️ Всички факти и история в проект **{active_ws.upper()}** бяха изчистени."
+        save_chat_message(active_ws, "niki", reply_msg)
         return jsonify({
-            "reply": f"🗑️ Всички факти в проект **{active_ws.upper()}** бяха изчистени от базата данни.",
+            "reply": reply_msg,
             "monologue": "Изчистване на локалната база данни.",
             "target_workspace": active_ws
         })
@@ -364,6 +405,8 @@ def chat():
         reply = f"✅ Записах следното за постоянно в базата данни на **{active_ws.upper()}**:\n\n> \"{clean_text}\""
         monologue = f"Запис в базата данни:\n- Съдържание: '{clean_text}'\n- Проект: {active_ws.upper()}"
 
+        save_chat_message(active_ws, "niki", reply)
+
         return jsonify({
             "reply": reply,
             "monologue": monologue,
@@ -371,6 +414,9 @@ def chat():
         })
 
     ai_result = call_ai_engine(message, existing_facts, file_list, library_text)
+
+    # Запазваме отговора на N.I.K.I. в базата данни
+    save_chat_message(active_ws, "niki", ai_result["reply"])
 
     return jsonify({
         "reply": ai_result["reply"],
