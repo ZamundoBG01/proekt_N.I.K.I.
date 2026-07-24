@@ -34,6 +34,11 @@
             width: 100%;
             max-width: 1400px;
             height: calc(100vh - 40px);
+            transition: all 0.3s ease;
+        }
+        .container.fullscreen {
+            grid-template-columns: 1fr 0px;
+            gap: 0px;
         }
         .chat-section {
             display: flex;
@@ -44,7 +49,7 @@
             overflow: hidden;
         }
         .chat-header {
-            padding: 15px 20px;
+            padding: 12px 20px;
             background-color: #21262d;
             border-bottom: 1px solid var(--border-color);
             display: flex;
@@ -55,6 +60,23 @@
             margin: 0;
             font-size: 1.1rem;
             color: #f0f6fc;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .btn-fullscreen {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--accent-blue);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .btn-fullscreen:hover {
+            background-color: var(--border-color);
         }
         .chat-history {
             flex: 1;
@@ -85,10 +107,15 @@
         }
         .msg-timestamp {
             font-size: 0.7rem;
-            color: #8b949e;
-            margin-top: 4px;
+            margin-top: 6px;
             text-align: right;
             user-select: none;
+        }
+        .message.user .msg-timestamp {
+            color: rgba(255, 255, 255, 0.75); /* Ясен бял цвят за твоите съобщения */
+        }
+        .message.niki .msg-timestamp {
+            color: #8b949e;
         }
         .thought-box {
             margin-top: 10px;
@@ -127,8 +154,11 @@
             padding: 10px;
             border-radius: 6px;
             resize: none;
-            height: 50px;
+            min-height: 45px;
+            max-height: 180px; /* Автоматично разширяване до ~7 реда */
             font-family: inherit;
+            line-height: 1.4;
+            overflow-y: auto;
         }
         button {
             background-color: var(--accent-green);
@@ -145,11 +175,12 @@
             background-color: var(--accent-red);
             color: #fff;
             border: none;
-            padding: 4px 8px;
+            padding: 2px 6px; /* 2 пъти по-малък бутон */
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.8rem;
-            height: 32px;
+            font-size: 0.7rem;
+            height: 26px;
+            width: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -158,6 +189,10 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+            overflow: hidden;
+        }
+        .container.fullscreen .sidebar {
+            display: none;
         }
         .panel {
             background-color: var(--panel-bg);
@@ -216,7 +251,6 @@
             padding: 2px 4px;
             font-size: 0.85rem;
         }
-        .btn-icon:hover { opacity: 0.8; }
         .fact-item {
             font-size: 0.85rem;
             padding: 6px 0;
@@ -233,15 +267,18 @@
     </style>
 </head>
 <body>
-<div class="container">
+<div class="container" id="main-container">
     <div class="chat-section">
         <div class="chat-header">
             <h2>N.I.K.I. - Worldbuilding & Simulations</h2>
-            <span id="current-ws-label" style="color: var(--accent-blue); font-weight: bold;">Проект: GENERAL</span>
+            <div class="header-actions">
+                <span id="current-ws-label" style="color: var(--accent-blue); font-weight: bold;">Проект: GENERAL</span>
+                <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Пълен екран">⛶</button>
+            </div>
         </div>
         <div class="chat-history" id="chat-history"></div>
         <div class="input-area">
-            <textarea id="user-input" placeholder="Напиши инструкция тук... (Enter за изпращане, Shift+Enter за нов ред)"></textarea>
+            <textarea id="user-input" placeholder="Напиши инструкция тук... (Enter за изпращане, Shift+Enter за нов ред)" oninput="autoExpandTextarea(this)"></textarea>
             <div class="input-controls">
                 <label class="auto-run-check">
                     <input type="checkbox" id="auto-run-toggle"> 🔄 Автоматичен режим (Auto-Run 24/7)
@@ -289,6 +326,16 @@
 <script>
     let activeWorkspace = "general";
     let factsExpanded = true;
+
+    function toggleFullScreen() {
+        const container = document.getElementById("main-container");
+        container.classList.toggle("fullscreen");
+    }
+
+    function autoExpandTextarea(el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+    }
 
     async function loadWorkspaces() {
         const res = await fetch("/workspaces");
@@ -394,8 +441,11 @@
         const text = input.value.trim();
         const autoRun = document.getElementById("auto-run-toggle").checked;
         if (!text) return;
+        
         appendMessageToUI("user", text);
         input.value = "";
+        input.style.height = '45px'; // Нулираме височината след изпращане
+        
         const res = await fetch("/chat", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
@@ -477,7 +527,6 @@
         }
     });
 
-    // Автоматично обновяване на всеки 5 секунди
     setInterval(() => {
         loadWorkspaceData();
     }, 5000);
