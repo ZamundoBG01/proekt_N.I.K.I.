@@ -1,5 +1,5 @@
 flask
-groq
+google-genai
 python-docx
 pypdf
 gunicorn
@@ -7,4 +7,3 @@ scikit-learn
 numpy
 requests
 psycopg2-binary
-google-genai
