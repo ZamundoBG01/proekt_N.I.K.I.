@@ -6,7 +6,7 @@ import threading
 import time
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from groq import Groq
+from google import genai
 import pypdf
 import docx
 from docx import Document
@@ -16,9 +16,12 @@ from psycopg2.extras import RealDictCursor
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKSPACES_DIR = os.path.join(BASE_DIR, "NIKI_CORE", "workspaces")
-GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
+
+# Инициализиране на Gemini клиент с API ключ от Render
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
+
+gemini_client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
 
 def get_db_connection():
     if not DATABASE_URL:
@@ -66,6 +69,7 @@ def init_db():
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS chat_history (
                         id SERIAL PRIMARY KEY,
+                        workspace VARCHAR(100) DEFAULT 'general',
                         sender VARCHAR(20) NOT NULL,
                         message TEXT NOT NULL,
                         monologue TEXT,
@@ -77,6 +81,11 @@ def init_db():
                     BEGIN 
                         BEGIN
                             ALTER TABLE chat_history ADD COLUMN monologue TEXT;
+                        EXCEPTION
+                            WHEN duplicate_column THEN NULL;
+                        END;
+                        BEGIN
+                            ALTER TABLE chat_history ADD COLUMN workspace VARCHAR(100) DEFAULT 'general';
                         EXCEPTION
                             WHEN duplicate_column THEN NULL;
                         END;
@@ -226,10 +235,10 @@ def clear_workspace_data(ws_name):
         finally: conn.close()
 
 def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
-    if not groq_client:
+    if not gemini_client:
         return {
             "reply": f"Обработена инструкция: {prompt}",
-            "thought": "Липсва GROQ_API_KEY в системните променливи."
+            "thought": "Липсва GEMINI_API_KEY в системните променливи."
         }
     try:
         files_str = ", ".join(file_list) if file_list else "Няма качени файлове"
@@ -247,22 +256,17 @@ def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
         3. Когато провеждаш АНАЛИЗ или СИМУЛАЦИЯ на промяна ("Ефекта на пеперудата"):
            - **Секция 1: 🔒 ТВЪРДА ДЕТЕРМИНИРАНА ВЕРИГА (Неизбежни преки последици)**
            - **Секция 2: 🎲 СИМУЛАЦИЯ НА 10 ВАРИАНТА (Спонтанни вторични променливи)**
-        4. Отговаряй ВИНАГИ на чист и правилен български език. ЗАБРАНЕНО Е смесването на латински букви в български думи (напр. НЕ пиши 'fascиниращ', а 'фасциниращ').
+        4. Отговаряй ВИНАГИ на чист и правилен български език.
         """
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_instructions},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.6,
-            max_tokens=2500
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=f"{system_instructions}\n\nПотребител: {prompt}"
         )
-        raw_reply = response.choices[0].message.content
+        raw_reply = response.text
         cleaned_reply = clean_ai_response(raw_reply)
         return {
             "reply": cleaned_reply,
-            "thought": f"🧠 Вътрешен монолог / Анализ:\n- Използвани факти от DB: {len(context_facts)}\n- Прочетени файлове от библиотеката: {len(file_list)}\n- AI Модел: Llama 3.3 70B (Versatile)"
+            "thought": f"🧠 Вътрешен монолог / Анализ:\n- Използвани факти от DB: {len(context_facts)}\n- Прочетени файлове от библиотеката: {len(file_list)}\n- AI Модел: Google Gemini 2.5 Flash"
         }
     except Exception as e:
         return {
@@ -281,7 +285,7 @@ def auto_run_worker(ws_name, initial_prompt, cycles=3):
         doc_filename = f"autorun_cycle_{i}_{int(time.time())}.docx"
         save_text_as_docx(ws_name, doc_filename, f"Auto-Run Симулация - Цикъл {i}", ai_res["reply"])
         current_prompt = f"Въз основа на предишната симулация, задълбочи анализa на най-вероятните 2 варианта и генерирай следващите 5 години развитие."
-        time.sleep(15) # Пауза 15 секунди за предпазване от токен лимити
+        time.sleep(15)
 
 @app.route("/")
 def index():
@@ -308,6 +312,7 @@ def handle_workspaces():
                 except Exception as e: print(f"WS Save DB Error: {e}")
                 finally: conn.close()
         return jsonify({"status": "success", "workspace": ws_name})
+    
     workspaces = ["general"]
     if conn:
         try:
@@ -356,7 +361,7 @@ def chat():
         reply_msg = "🚀 **Автоматичният офлайн цикъл (Auto-Run) беше стартиран!** N.I.K.I. ще продължи да работи на заден план и да създава Word документи в библиотеката, дори ако излезете."
         save_chat_message(active_ws, "niki", reply_msg, "Стартирана офлайн задача.")
         return jsonify({"reply": reply_msg, "monologue": "Auto-Run Engine Active"})
-
+        
     existing_facts = get_workspace_facts(active_ws)
     library_path = os.path.join(WORKSPACES_DIR, active_ws, "library")
     file_list = []
@@ -412,7 +417,7 @@ def chat():
     if "СЕКЦИЯ" in ai_result["reply"].upper() or len(ai_result["reply"]) > 1000:
         doc_name = f"simulation_{int(time.time())}.docx"
         save_text_as_docx(active_ws, doc_name, "N.I.K.I. Симулационен Доклад", ai_result["reply"])
-
+    
     save_chat_message(active_ws, "niki", ai_result["reply"], ai_result["thought"])
     return jsonify({
         "reply": ai_result["reply"],
