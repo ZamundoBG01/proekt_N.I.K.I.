@@ -14,12 +14,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKSPACES_DIR = os.path.join(BASE_DIR, "NIKI_CORE", "workspaces")
 GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-
 groq_client = Groq(api_key=GROQ_KEY) if GROQ_KEY else None
 
 def get_db_connection():
@@ -68,16 +66,21 @@ def init_db():
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS chat_history (
                         id SERIAL PRIMARY KEY,
-                        workspace VARCHAR(100) NOT NULL,
                         sender VARCHAR(20) NOT NULL,
                         message TEXT NOT NULL,
                         monologue TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
-                # Автоматично добавяне на липсващата колона monologue
                 cur.execute("""
-                    ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS monologue TEXT;
+                    DO $$ 
+                    BEGIN 
+                        BEGIN
+                            ALTER TABLE chat_history ADD COLUMN monologue TEXT;
+                        EXCEPTION
+                            WHEN duplicate_column THEN NULL;
+                        END;
+                    END $$;
                 """)
                 conn.commit()
         except Exception as e:
@@ -95,7 +98,6 @@ def sanitize_ws_name(name):
 def clean_ai_response(text):
     if not text:
         return text
-    
     fixes = {
         r"\bfascиниращ\b": "фасциниращ",
         r"\bfascинираща\b": "фасцинираща",
@@ -136,15 +138,12 @@ def extract_text_from_file(file_path):
 def save_text_as_docx(ws_name, filename, title, content):
     library_path = os.path.join(WORKSPACES_DIR, sanitize_ws_name(ws_name), "library")
     os.makedirs(library_path, exist_ok=True)
-    
     file_path = os.path.join(library_path, filename)
     doc = Document()
     doc.add_heading(title, level=1)
-    
     for paragraph in content.split('\n\n'):
         if paragraph.strip():
             doc.add_paragraph(paragraph.strip())
-            
     doc.save(file_path)
     return file_path
 
@@ -274,19 +273,15 @@ def call_ai_engine(prompt, context_facts=[], file_list=[], library_context=""):
 def auto_run_worker(ws_name, initial_prompt, cycles=3):
     print(f"🚀 Стартиран Auto-Run за проект '{ws_name}' с {cycles} цикъла.")
     current_prompt = initial_prompt
-    
     for i in range(1, cycles + 1):
         facts = get_workspace_facts(ws_name)
         ai_res = call_ai_engine(f"[АВТОМАТИЧЕН ЦИКЪЛ {i}/{cycles}] {current_prompt}", facts)
-        
         reply_msg = f"🔄 **[Auto-Run Цикъл {i}/{cycles}]**\n\n" + ai_res["reply"]
         save_chat_message(ws_name, "niki", reply_msg, ai_res["thought"])
-        
         doc_filename = f"autorun_cycle_{i}_{int(time.time())}.docx"
         save_text_as_docx(ws_name, doc_filename, f"Auto-Run Симулация - Цикъл {i}", ai_res["reply"])
-        
         current_prompt = f"Въз основа на предишната симулация, задълбочи анализa на най-вероятните 2 варианта и генерирай следващите 5 години развитие."
-        time.sleep(5)
+        time.sleep(15) # Пауза 15 секунди за предпазване от токен лимити
 
 @app.route("/")
 def index():
@@ -414,7 +409,6 @@ def chat():
         })
 
     ai_result = call_ai_engine(message, existing_facts, file_list, library_text)
-
     if "СЕКЦИЯ" in ai_result["reply"].upper() or len(ai_result["reply"]) > 1000:
         doc_name = f"simulation_{int(time.time())}.docx"
         save_text_as_docx(active_ws, doc_name, "N.I.K.I. Симулационен Доклад", ai_result["reply"])
@@ -430,7 +424,6 @@ def chat():
 def upload_file():
     if 'file' not in request.files:
         return jsonify({"message": "Няма прикачен файл."}), 400
-    
     file = request.files['file']
     ws_name = sanitize_ws_name(request.form.get("workspace", "general"))
     if file.filename == '':
@@ -460,7 +453,6 @@ def delete_file():
             return jsonify({"message": f"Файлът '{filename}' беше изтрит успешно."})
         except Exception as e:
             return jsonify({"message": f"Грешка при изтриване: {str(e)}"}), 500
-    
     return jsonify({"message": "Файлът не бе намерен."}), 404
 
 if __name__ == "__main__":
