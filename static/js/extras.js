@@ -1,16 +1,13 @@
 // ==========================================
-// N.I.K.I. EXTRAS: Факти, Шаблони и Влачене
+// N.I.K.I. EXTRAS: Факти, Шаблони и Преместване
 // ==========================================
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("N.I.K.I. Extras модулът е зареден успешно!");
-    
-    // Тук добавяме слушатели или начални настройки, ако е нужно
     initTemplatesAndExtras();
 });
 
 function initTemplatesAndExtras() {
-    // Създаваме бутон за шаблони до полето за добавяне на факти, ако вече го няма
     const factsHeader = document.querySelector("#facts-section-header") || document.querySelector(".facts-container") || document.body;
     
     // Проверяваме дали бутонът за шаблони вече съществува
@@ -22,7 +19,6 @@ function initTemplatesAndExtras() {
         templateBtn.textContent = "📂 Готови шаблони за факти";
         templateBtn.onclick = showFactTemplatesModal;
         
-        // Поставяме го на удобно място (например най-горе в секцията с факти)
         const targetArea = document.getElementById("facts-list") || factsHeader;
         if (targetArea && targetArea.parentNode) {
             targetArea.parentNode.insertBefore(templateBtn, targetArea);
@@ -44,7 +40,7 @@ function showFactTemplatesModal() {
         const contentArea = document.getElementById("fact-content-input") || document.getElementById("chat-input");
         if (contentArea) {
             contentArea.value = templates[choice];
-            alert(`Шаблонът '${choice'}' е зареден успешно! Можеш да го редактираш и запишеш.`);
+            alert(`Шаблонът '${choice}' е зареден успешно! Можеш да го редактираш и запишеш.`);
         } else {
             alert(templates[choice]);
         }
@@ -52,3 +48,67 @@ function showFactTemplatesModal() {
         alert("Непознат шаблон. Моля, изберете точно име от списъка.");
     }
 }
+
+// ==========================================
+// Функция за преместване на файл в друг проект
+// ==========================================
+document.addEventListener("click", async (e) => {
+    if (e.target && e.target.classList.contains("btn-move-file")) {
+        const filename = e.target.getAttribute("data-filename");
+        const subfolder = e.target.getAttribute("data-subfolder") || "";
+        
+        try {
+            const res = await fetch('/workspaces');
+            const data = await res.json();
+            
+            if (!data.workspaces || data.workspaces.length === 0) {
+                alert("Няма други проекти.");
+                return;
+            }
+            
+            let wsList = data.workspaces.filter(ws => ws !== currentWorkspace);
+            if (wsList.length === 0) {
+                alert("Няма други проекти, в които да преместите файла.");
+                return;
+            }
+            
+            let promptText = "Изберете целеви проект за преместване:\n" + wsList.map((ws, i) => `${i + 1}. ${ws}`).join("\n");
+            let choice = prompt(promptText);
+            
+            if (!choice) return;
+            
+            let targetWorkspace = wsList[parseInt(choice) - 1] || choice.trim();
+            
+            if (!data.workspaces.includes(targetWorkspace)) {
+                alert("Невалиден проект!");
+                return;
+            }
+            
+            const response = await fetch('/move_file_workspace', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source_workspace: currentWorkspace,
+                    target_workspace: targetWorkspace,
+                    filename: filename,
+                    subfolder: subfolder
+                })
+            });
+            
+            if (response.ok) {
+                alert(`Файлът '${filename}' беше преместен успешно в проект '${targetWorkspace.toUpperCase()}'!`);
+                if (typeof loadWorkspaceData === 'function') {
+                    loadWorkspaceData(currentWorkspace, currentSubfolder);
+                } else {
+                    location.reload();
+                }
+            } else {
+                const errData = await response.json();
+                alert("Грешка при преместване: " + (errData.message || 'Неизвестна грешка'));
+            }
+            
+        } catch (err) {
+            console.error("Грешка при преместване на файл:", err);
+        }
+    }
+});
