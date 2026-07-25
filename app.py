@@ -309,19 +309,40 @@ def download_text_file():
     if file_format == "pdf":
         from reportlab.lib.pagesizes import letter
         from reportlab.pdfgen import canvas
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        import os
         
-        # Генерираме истински PDF документ
         c = canvas.Canvas(mem, pagesize=letter)
         width, height = letter
         
-        # Простичко разделяне на текста по редове за PDF-а
+        # Опитваме се да регистрираме системен шрифт за кирилица (Arial или DejaVuSans ако има)
+        font_name = "Helvetica" # по подразбиране
+        try:
+            # Проверяваме за стандартен Windows шрифт в контейнера или сървъра
+            windows_font_path = "C:/Windows/Fonts/arial.ttf"
+            linux_font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+            
+            if os.path.exists(windows_font_path):
+                pdfmetrics.registerFont(TTFont('CustomUnicodeFont', windows_font_path))
+                font_name = 'CustomUnicodeFont'
+            elif os.path.exists(linux_font_path):
+                pdfmetrics.registerFont(TTFont('CustomUnicodeFont', linux_font_path))
+                font_name = 'CustomUnicodeFont'
+        except Exception as e:
+            print("Font load error:", e)
+
+        c.setFont(font_name, 11)
+        
         text_lines = text.split("\n")
         y = height - 40
         for line in text_lines:
-            if y < 40:  # Нова страница при нужда
+            if y < 40:
                 c.showPage()
+                c.setFont(font_name, 11)
                 y = height - 40
-            c.drawString(40, y, line[:100]) # Орязваме дълги редове за безопасност
+            # Избягваме счупвания на дълги редове
+            c.drawString(40, y, str(line)[:90])
             y -= 20
             
         c.save()
