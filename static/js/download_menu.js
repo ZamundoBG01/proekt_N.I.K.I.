@@ -1,5 +1,36 @@
-// Нова изолирана логика за падащото меню за изтегляне в стил Google Docs
+// ==========================================
+// МОДУЛ 1: ПОЧИСТВАНЕ НА ШЛЬОКАВИЦИ (LaTeX стрелки)
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1) {
+                    // Търсим навсякъде в новите съобщения за шльокавици и ги чистим
+                    if (node.innerHTML && node.innerHTML.includes('\\rightarrow')) {
+                        node.innerHTML = node.innerHTML.replace(/\\rightarrow/g, '→');
+                    }
+                    // Също така проверяваме и в дъщерните елементи
+                    node.querySelectorAll('*').forEach(el => {
+                        if (el.innerHTML && el.innerHTML.includes('\\rightarrow')) {
+                            el.innerHTML = el.innerHTML.replace(/\\rightarrow/g, '→');
+                        }
+                    });
+                }
+            });
+        });
+    });
+    
+    const chatContainer = document.getElementById('messages-container');
+    if (chatContainer) {
+        observer.observe(chatContainer, { childList: true, subtree: true });
+    }
+});
 
+
+// ==========================================
+// МОДУЛ 2: ПАДАЩО МЕНЮ ЗА ИЗТЕГЛЯНЕ (Google Docs стил)
+// ==========================================
 function toggleDownloadMenu(event, btn) {
     event.stopPropagation();
     
@@ -30,7 +61,7 @@ function toggleDownloadMenu(event, btn) {
         <div class="dropdown-item pdf-save-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.pdf)</div>
     `;
 
-    // Закачаме събитията сигурно чрез JS (без рискове от счупване с кавички)
+    // Закачаме събитията сигурно чрез JS
     dropdown.querySelector('.docx-btn').onclick = () => handleExport(encodedText, 'docx', false);
     dropdown.querySelector('.pdf-btn').onclick = () => handleExport(encodedText, 'pdf', false);
     dropdown.querySelector('.docx-save-btn').onclick = () => handleExport(encodedText, 'docx', true);
@@ -69,7 +100,6 @@ async function handleExport(encodedText, format, saveAsPrompt) {
         
         const filename = `document.${format === 'pdf' ? 'pdf' : 'docx'}`;
 
-        // Ако браузърът поддържа избор на папка (Запази в...)
         if (saveAsPrompt && window.showSaveFilePicker) {
             try {
                 const options = {
@@ -87,11 +117,10 @@ async function handleExport(encodedText, format, saveAsPrompt) {
                 await writable.close();
                 return;
             } catch (err) {
-                if (err.name === 'AbortError') return; // Потребителят е отказал
+                if (err.name === 'AbortError') return;
             }
         }
 
-        // Стандартно сваляне
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
