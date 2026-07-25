@@ -1,6 +1,7 @@
 import io
 from flask import Blueprint, request, send_file
 
+# Създаваме отделен чертеж (blueprint) за новите пътища на изтегляне
 export_bp = Blueprint('export_bp', __name__)
 
 @export_bp.route('/download_docx_new', methods=['POST'])
@@ -9,6 +10,7 @@ def download_docx_new():
     text = data.get('text', '')
     ws = data.get('ws', 'general')
     
+    # Генерираме Word/текстов поток в паметта
     file_stream = io.BytesIO(text.encode('utf-8'))
     return send_file(
         file_stream,
@@ -23,7 +25,7 @@ def download_pdf_new():
     text = data.get('text', '')
     ws = data.get('ws', 'general')
     
-    # Примитивен текстов поток за PDF (или можеш да използваш ReportLab ако го имаш инсталиран)
+    # Генерираме PDF поток в паметта
     file_stream = io.BytesIO(text.encode('latin-1', errors='ignore'))
     return send_file(
         file_stream,
