@@ -4,7 +4,7 @@ from google.genai import types
 
 def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=None):
     """
-    Извиква официалния Google GenAI SDK (google-genai) с актуалния модел gemini-2.0-flash.
+    Извиква официалния Google GenAI SDK (google-genai) с модела gemini-1.5-flash.
     """
     try:
         client = genai.Client()
@@ -27,9 +27,9 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
         if context_parts:
             full_prompt = "\n\n".join(context_parts) + f"\n\nПотребителско запитване: {prompt}"
 
-        # Използваме работещия модел gemini-2.0-flash
+        # Използваме стабилния gemini-1.5-flash, който има сигурна безплатна квота
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -41,7 +41,7 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
         
         return {
             "reply": reply_text,
-            "thought": "Анализирах параметрите, контекста и наличните факти през Gemini 2.0 Flash."
+            "thought": "Анализирах параметрите, контекста и наличните факти през Gemini 1.5 Flash."
         }
 
     except Exception as e:
