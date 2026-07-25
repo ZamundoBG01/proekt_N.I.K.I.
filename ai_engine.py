@@ -4,8 +4,8 @@ from google.genai import types
 
 def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=None):
     """
-    Автоматично опитва различни версии на моделите на Gemini (2.5 -> 2.0 -> 1.5),
-    ако някоя от тях върне грешка за квота или лимити.
+    Динамично проверява наличните модели (тип *.* търсене) и автоматично премигва 
+    към следващия работещ модел при грешка или отказ.
     """
     client = genai.Client()
 
@@ -27,12 +27,29 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
     if context_parts:
         full_prompt = "\n\n".join(context_parts) + f"\n\nПотребителско запитване: {prompt}"
 
-    # Списък с модели за автоматичен резервен избор (fallback)
-    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
-    
     last_error = None
+    discovered_models = []
 
-    for model_name in models_to_try:
+    # Стъпка 1: "Динамично търсене" (*.*) на наличните модели от сървъра на Google в реално време
+    try:
+        for m in client.models.list():
+            model_path = m.name  # например 'models/gemini-2.0-flash'
+            clean_name = model_path.replace("models/", "")
+            # Предпочитаме гъвкавите flash модели, но приемаме и всякакви други налични
+            if "gemini" in clean_name:
+                if clean_name not in discovered_models:
+                    discovered_models.append(clean_name)
+    except Exception as e:
+        print(f"Грешка при списъка с модели: {e}")
+
+    # Резервен списък, ако динамичното извличане временно не върне резултат
+    fallback_defaults = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro']
+    for model in fallback_defaults:
+        if model not in discovered_models:
+            discovered_models.append(model)
+
+    # Стъпка 2: Опитваме се последователно; ако даден модел спре да работи, веднага минава на следващия
+    for model_name in discovered_models:
         try:
             response = client.models.generate_content(
                 model=model_name,
@@ -46,22 +63,18 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
             if response and response.text:
                 return {
                     "reply": response.text,
-                    "thought": f"Успешен отговор през модел: {model_name}"
+                    "thought": f"Успешен преход и изпълнение през модел: {model_name}"
                 }
         except Exception as e:
             last_error = str(e)
-            # Продължава към следващия модел в списъка при грешка
+            # Автоматично продължава (failover) към следващия модел в списъка
             continue
 
-    # Ако всички модели се провалят
+    # Ако абсолютно всички модели върнат грешка
     return {
-        "reply": f"Грешка при връзка с всички AI модели. Последна грешка: {last_error}",
-        "thought": "Всички резервни модели изчерпиха квотата или върнаха грешка."
+        "reply": f"Грешка при връзка с всички налични AI модели. Последна грешка: {last_error}",
+        "thought": "Всички налични модели изчерпиха квотата си или върнаха грешка при изпълнение."
     }
 
-
 def auto_run_worker(*args, **kwargs):
-    """
-    Фонова функция (worker), очаквана от app.py.
-    """
     pass
