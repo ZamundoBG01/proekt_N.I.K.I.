@@ -1,10 +1,9 @@
 import os
 import re
 import shutil
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import threading
 
-# Импорт на новите отделни модули
 from database import (
     init_db, get_db_connection, get_workspace_facts, 
     add_workspace_fact, save_chat_message, get_chat_history, clear_workspace_data
@@ -15,13 +14,10 @@ from file_manager import (
 )
 from ai_engine import call_ai_engine, auto_run_worker
 
-# Инициализиране на базата данни при старт
 init_db()
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
-
-# ====== ФЛАСК МАРШРУТИ И API ======
 
 @app.route("/")
 def index():
@@ -191,12 +187,27 @@ def chat():
         save_chat_message(active_ws, "niki", reply_msg)
         return jsonify({"reply": reply_msg, "monologue": "Изчистване на локалната база данни.", "target_workspace": active_ws})
 
+    if "изтрий факт:" in message.lower():
+        fact_to_del = message.lower().replace("изтрий факт:", "").strip()
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM verified_facts WHERE workspace = %s AND LOWER(content) = %s;", (active_ws, fact_to_del))
+                    conn.commit()
+            except Exception as e:
+                print(f"Delete Fact Error: {e}")
+            finally:
+                conn.close()
+        return jsonify({"status": "success"})
+
     is_save_command = any(kw in message.lower() for kw in ["запиши", "добави факт", "дневник:"])
     if is_save_command:
-        clean_text = re.sub(r"^(запиши предното съобщение|запиши добави факт дневник:)\s*:?", "", message, flags=re.IGNORECASE).strip()
-        if not clean_text: clean_text = message
+        clean_text = re.sub(r"^(запиши предното съобщение|запиши следния факт в базата данни|запиши факт|запиши|добави факт|дневник:)\s*:?", "", message, flags=re.IGNORECASE).strip()
+        if not clean_text: 
+            clean_text = message
         add_workspace_fact(active_ws, clean_text)
-        reply = f"Записах следното за постоянно в базата данни на **{active_ws.upper()}**:\n\n> \"{clean_text}\""
+        reply = f"Записах следния факт за постоянно в базата данни на **{active_ws.upper()}**:\n\n> \"{clean_text}\""
         monologue = f"Запис в базата данни: '{clean_text}'"
         save_chat_message(active_ws, "niki", reply, monologue)
         return jsonify({"reply": reply, "monologue": monologue, "target_workspace": active_ws})
@@ -231,6 +242,13 @@ def download_file(ws_name, filename):
     clean_ws = sanitize_ws_name(ws_name)
     library_base = os.path.join(WORKSPACES_DIR, clean_ws, "library")
     return send_from_directory(library_base, filename, as_attachment=True)
+
+@app.route("/download_text_file")
+def download_text_file():
+    text_content = request.args.get("text", "Симулация от П.І.К.І.")
+    response = Response(text_content, mimetype="text/plain")
+    response.headers["Content-Disposition"] = "attachment; filename=NIKI_Simulation_Report.txt"
+    return response
 
 @app.route("/delete_file", methods=["POST"])
 def delete_file():
