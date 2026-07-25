@@ -121,7 +121,6 @@ function renderFacts(facts) {
         li.style.flexDirection = "column";
         li.style.alignItems = "flex-start";
         
-        // Безопасно кодиране на съдържанието срещу чупене на кавичките в HTML/JS
         const safeContent = encodeURIComponent(f.content);
 
         li.innerHTML = `
@@ -361,32 +360,67 @@ function appendMessageLocally(sender, message, monologue = null) {
     container.scrollTop = container.scrollHeight;
 }
 
+// Подобрена логика за бутоните за бързи команди (Запиши факт, Пеперуден ефект и др.)
 function setQuickPrompt(text) {
     const textarea = document.getElementById("chat-input");
-    if (textarea) {
-        if (text === "Изтрий всичко") {
-            textarea.value = '';
-            textarea.style.height = 'auto';
-            sendMessageUserDirect("изтрий всичко");
-            return;
-        }
-        textarea.value = text;
+    if (!textarea) return;
+
+    const currentInputText = textarea.value.trim();
+
+    if (text === "Изтрий всичко") {
+        textarea.value = '';
         textarea.style.height = 'auto';
-        textarea.style.height = (textarea.scrollHeight) + 'px';
-        textarea.focus();
+        sendMessageUserDirect("изтрий всичко");
+        return;
     }
+
+    // Ако потребителят е написал нещо в полето за чат, взимаме го и го комбинираме с бутона директно
+    let finalMessage = text;
+    if (currentInputText) {
+        if (text.includes("Запиши факт")) {
+            finalMessage = `Запиши факт: ${currentInputText}`;
+        } else if (text.includes("Пеперуден ефект") || text.includes("Физичен анализ")) {
+            finalMessage = `${text} върху следния елемент: ${currentInputText}`;
+        } else {
+            finalMessage = `${text}: ${currentInputText}`;
+        }
+    }
+
+    textarea.value = '';
+    textarea.style.height = 'auto';
+    sendMessageUserDirect(finalMessage);
 }
 
 async function sendMessageUserDirect(msg) {
     appendMessageLocally('user', msg);
+    
+    const indicator = document.getElementById("thinking-indicator");
+    if (indicator) {
+        indicator.style.display = 'block';
+        let count = 1;
+        indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
+        thinkingInterval = setInterval(() => {
+            count++;
+            indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
+        }, 1000);
+    }
+
     try {
-        await fetch('/chat', {
+        const res = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: msg, workspace: currentWorkspace })
         });
+        const data = await res.json();
+        
+        if (thinkingInterval) clearInterval(thinkingInterval);
+        if (indicator) indicator.style.display = 'none';
+
+        appendMessageLocally('niki', data.reply, data.monologue);
         loadWorkspaceData(currentWorkspace, currentSubfolder);
     } catch (e) {
+        if (thinkingInterval) clearInterval(thinkingInterval);
+        if (indicator) indicator.style.display = 'none';
         console.error("Грешка:", e);
     }
 }
