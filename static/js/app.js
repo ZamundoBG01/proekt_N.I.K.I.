@@ -200,9 +200,11 @@ function renderChatHistory(history) {
         let actionsHtml = '';
         if (h.sender === 'niki') {
             actionsHtml = `
-                <div style="display:flex; gap:8px; margin-top:8px;">
+               <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center;">
                     <button class="btn-sm btn-primary" onclick="copyMessageText(this)">📋 Копирай</button>
-                    <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message)}&ws=${encodeURIComponent(currentWorkspace)}" target="_blank">📥 Свали .docx</a>
+                    <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || message)}&ws=${encodeURIComponent(currentWorkspace)}&format=docx" target="_blank">📥 Word</a>
+                    <a class="btn-sm btn-secondary" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || message)}&ws=${encodeURIComponent(currentWorkspace)}&format=pdf" target="_blank">📥 PDF</a>
+                    <button class="btn-sm btn-secondary" onclick="shareMessageText(this)">📤 Сподели</button>
                 </div>
             `;
         }
@@ -539,6 +541,30 @@ async function uploadFile() {
         loadWorkspaceData(currentWorkspace, currentSubfolder);
     } catch (e) {
         console.error("Грешка при качване на файл:", e);
+    }
+}
+
+async function shareMessageText(btn) {
+    // Намираме текста на съобщението, което е в съседното поле (bubble)
+    const bubbleText = btn.parentElement.previousElementSibling.textContent;
+    
+    // Проверяваме дали браузърът/устройството поддържа стандартното споделяне
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'N.I.K.I. Отговор',
+                text: bubbleText,
+            });
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error("Грешка при споделяне:", err);
+            }
+        }
+    } else {
+        // Резервен вариант: ако устройството не поддържа Web Share API, автоматично го копираме и казваме на потребителя
+        navigator.clipboard.writeText(bubbleText).then(() => {
+            alert("Текстът е копиран в клипборда, защото устройството не поддържа директно споделяне към външни приложения.");
+        });
     }
 }
 
