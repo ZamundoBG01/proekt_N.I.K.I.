@@ -275,8 +275,8 @@ textarea {
     padding: 10px;
     border-radius: 8px;
     resize: none;
-    min-height: 80px;
-    max-height: 200px;
+    min-height: 45px;
+    max-height: 180px;
     outline: none;
     overflow-y: auto;
     line-height: 1.4;
@@ -292,7 +292,7 @@ textarea:focus { border-color: var(--accent-blue); }
     border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
-    height: 42px;
+    height: 45px;
     transition: background 0.2s;
 }
 
@@ -382,13 +382,4 @@ textarea:focus { border-color: var(--accent-blue); }
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 150px;
-}
-
-.path-indicator {
-    font-size: 0.75rem;
-    color: var(--accent-blue);
-    margin-bottom: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
