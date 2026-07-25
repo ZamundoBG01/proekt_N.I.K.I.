@@ -30,7 +30,7 @@
                     <button class="btn-quick" onclick="setQuickPrompt('Симулирай ефекта на пеперудата върху следния елемент: ')">🦋 Пеперуден ефект</button>
                     <button class="btn-quick" onclick="setQuickPrompt('Анализирай физичната и биологична достоверност на: ')">🔬 Физичен анализ</button>
                     <button class="btn-quick" onclick="setQuickPrompt('Запиши: ')">💾 Запиши факт</button>
-                    <button class="btn-quick" onclick="setQuickPrompt('Изтрий всичко')">🗑️ Изчисти всичко</button>
+                    <button class="btn-quick" onclick="confirmClearChat()">🗑️ Изчисти всичко</button>
                 </div>
                 <div class="input-wrapper">
                     <textarea id="chat-input" placeholder="Напишете инструкция или въпрос към N.I.K.I. (Enter за изпращане, Shift+Enter за нов ред)..."></textarea>
@@ -62,7 +62,10 @@
             <div class="sidebar-card">
                 <div class="card-header">
                     <span>Проверени факти и закони</span>
-                    <button id="btn-toggle-facts" class="btn-sm btn-secondary" onclick="toggleSection('btn-toggle-facts', 'fact-list-container')">[-]</button>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button class="btn-sm btn-danger" onclick="deleteAllFacts()" title="Изтрий всички факти наведнъж">🗑️</button>
+                        <button id="btn-toggle-facts" class="btn-sm btn-secondary" onclick="toggleSection('btn-toggle-facts', 'fact-list-container')">[-]</button>
+                    </div>
                 </div>
                 <div id="fact-list-container" style="display: flex; flex-direction: column;">
                     <ul class="fact-list" id="fact-list">
