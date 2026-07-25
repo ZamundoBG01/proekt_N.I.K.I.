@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>П.І.К.І. - Главен архитект на светове</title>
+    <title>N.I.K.I. - Главен архитект на светове</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -12,7 +12,7 @@
         <div class="main-chat-area" id="main-chat-area">
             <div class="chat-header">
                 <div class="header-left">
-                    <h1>П.І.К.І.</h1>
+                    <h1>N.I.K.I.</h1>
                     <div id="live-clock">00:00:00 ч.</div>
                 </div>
                 <div class="header-actions">
@@ -22,7 +22,7 @@
             </div>
 
             <div class="messages-container" id="messages-container">
-                <div id="thinking-indicator">П.І.К.І. анализира параметрите и физичните закони... [ 1 ]</div>
+                <div id="thinking-indicator">N.I.K.I. анализира параметрите и физичните закони... [ 1 ]</div>
             </div>
 
             <div class="input-container">
@@ -33,7 +33,7 @@
                     <button class="btn-quick" onclick="setQuickPrompt('Изтрий всичко')">🗑️ Изчисти всичко</button>
                 </div>
                 <div class="input-wrapper">
-                    <textarea id="chat-input" placeholder="Напишете инструкция или въпрос към П.І.К.І. (Enter за изпращане, Ctrl+Enter за нов ред)..."></textarea>
+                    <textarea id="chat-input" placeholder="Напишете инструкция или въпрос към N.I.K.I. (Enter за изпращане, Shift+Enter за нов ред)..."></textarea>
                     <button class="btn-send" onclick="sendMessage()">Изпрати</button>
                 </div>
                 <div class="auto-run-toggle">
@@ -60,10 +60,15 @@
 
             <!-- Проверени факти -->
             <div class="sidebar-card">
-                <div class="card-header">Проверени факти и закони</div>
-                <ul class="fact-list" id="fact-list">
-                    <li class="item-row" style="color:var(--text-muted);">Няма записани факти.</li>
-                </ul>
+                <div class="card-header">
+                    <span>Проверени факти и закони</span>
+                    <button id="btn-toggle-facts" class="btn-sm btn-secondary" onclick="toggleSection('btn-toggle-facts', 'fact-list-container')">[-]</button>
+                </div>
+                <div id="fact-list-container" style="display: flex; flex-direction: column;">
+                    <ul class="fact-list" id="fact-list">
+                        <li class="item-row" style="color:var(--text-muted);">Няма записани факти.</li>
+                    </ul>
+                </div>
             </div>
 
             <!-- Библиотека с файлове -->
