@@ -154,6 +154,34 @@ def move_file():
     except Exception as e:
         return jsonify({"message": f"Грешка при преместване: {str(e)}"}), 500
 
+@app.route("/move_file_workspace", methods=["POST"])
+def move_file_workspace():
+    data = request.json or {}
+    source_ws = data.get("source_workspace")
+    target_ws = data.get("target_workspace")
+    filename = data.get("filename")
+    subfolder = data.get("subfolder", "")
+    
+    import shutil
+    import os
+    
+    # Тук използваме твоята логика за папка с проекти (провери дали твоята папка се казва така, например workspaces или друга)
+    base_dir = "workspaces" 
+    source_path = os.path.join(base_dir, source_ws, subfolder, filename)
+    target_dir = os.path.join(base_dir, target_ws, subfolder)
+    
+    if not os.path.exists(source_path):
+        return jsonify({"status": "error", "message": "Изходният файл не е намерен."}), 404
+        
+    os.makedirs(target_dir, exist_ok=True)
+    target_path = os.path.join(target_dir, filename)
+    
+    try:
+        shutil.move(source_path, target_path)
+        return jsonify({"status": "success", "message": "Файлът е преместен успешно."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/delete_all_facts", methods=["POST"])
 def delete_all_facts():
     data = request.get_json() or {}
