@@ -4,7 +4,8 @@ from google.genai import types
 
 def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=None):
     """
-    Извиква официалния Google GenAI SDK (google-genai) с пълния контекст от факти и файлове.
+    Извиква официалния Google GenAI SDK (google-genai) и връща речник с отговор и мисъл (monologue),
+ точно както app.py ги очаква.
     """
     try:
         client = genai.Client()
@@ -15,7 +16,6 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
             "взимаш предвид предоставените факти и контекст."
         )
 
-        # Сглобяване на пълния контекст за модела
         context_parts = []
         if existing_facts:
             context_parts.append(f"Запазени факти:\n{existing_facts}")
@@ -37,13 +37,19 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
             ),
         )
 
-        if response and response.text:
-            return response.text
-        else:
-            return "Сигналът е приет, но не беше върнат отговор от AI модела."
+        reply_text = response.text if (response and response.text) else "Сигналът е приет, но не беше върнат отговор от AI модела."
+        
+        # Връщаме речник с ключовете, които app.py търси
+        return {
+            "reply": reply_text,
+            "thought": "Анализирах параметрите, контекста и наличните факти през Gemini 2.5 Flash."
+        }
 
     except Exception as e:
-        return f"Грешка при връзка с AI ядрото: {str(e)}"
+        return {
+            "reply": f"Грешка при връзка с AI ядрото: {str(e)}",
+            "thought": "Възникна изключение при комуникацията с API на Google."
+        }
 
 
 def auto_run_worker(*args, **kwargs):
