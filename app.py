@@ -267,6 +267,21 @@ def download_file(ws_name, filename):
     library_base = os.path.join(WORKSPACES_DIR, clean_ws, "library")
     return send_from_directory(library_base, filename, as_attachment=True)
 
+@app.route("/download_text_file")
+def download_text_file():
+    text = request.args.get("text", "")
+    ws = request.args.get("ws", "general")
+    import io
+    from flask import send_file
+    
+    # Създаваме текстов/документен файл в паметта за сваляне
+    mem = io.BytesIO()
+    mem.write(text.encode('utf-8'))
+    mem.seek(0)
+    
+    filename = f"NIKI_Response_{ws}.txt"
+    return send_file(mem, as_attachment=True, download_name=filename, mimetype="text/plain")
+
 @app.route("/delete_file", methods=["POST"])
 def delete_file():
     data = request.get_json() or {}
