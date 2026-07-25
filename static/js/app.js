@@ -241,24 +241,82 @@ function renderLibrary(files, folders, subfolder) {
         const li = document.createElement("li");
         li.className = "item-row";
         const nextSub = subfolder ? `${subfolder}/${folder}` : folder;
+        
         li.innerHTML = `
             <span class="folder-item" onclick="loadWorkspaceData('${currentWorkspace}', '${nextSub}')">📁 ${folder}</span>
             <div class="item-actions">
                 <button class="btn-sm btn-danger" onclick="deleteFolder('${folder}')">Изтрий</button>
             </div>
         `;
+
+        // Добавяме Drag & Drop логика за папката
+        li.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            li.style.background = 'var(--bg-hover, #333)';
+        });
+
+        li.addEventListener('dragleave', () => {
+            li.style.background = 'transparent';
+        });
+
+        li.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            li.style.background = 'transparent';
+            
+            const dataStr = e.dataTransfer.getData('text/plain');
+            if (!dataStr) return;
+            
+            try {
+                const data = JSON.parse(dataStr);
+                if (data.type === 'file') {
+                    const targetSubfolder = currentSubfolder ? currentSubfolder + '/' + folder : folder;
+                    
+                    const response = await fetch('/move_file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            workspace: currentWorkspace,
+                            filename: data.name,
+                            source_subfolder: data.subfolder,
+                            target_subfolder: targetSubfolder
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        loadWorkspaceData(currentWorkspace, currentSubfolder);
+                    } else {
+                        const errData = await response.json();
+                        alert("Грешка при преместване: " + (errData.message || 'Неизвестна грешка'));
+                    }
+                }
+            } catch (err) {
+                console.error("Drag and Drop Error:", err);
+            }
+        });
+
         list.appendChild(li);
     });
 
     files.forEach(file => {
         const li = document.createElement("li");
         li.className = "item-row";
+        li.setAttribute('draggable', 'true');
+        
         li.innerHTML = `
             <a class="file-item" href="/download/${encodeURIComponent(currentWorkspace)}/${encodeURIComponent(subfolder ? subfolder + '/' + file : file)}" target="_blank">📄 ${file}</a>
             <div class="item-actions">
                 <button class="btn-sm btn-danger" onclick="deleteFile('${file}')">Изтрий</button>
             </div>
         `;
+
+        li.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                type: 'file',
+                name: file,
+                subfolder: currentSubfolder
+            }));
+        });
+
         list.appendChild(li);
     });
 }
@@ -360,7 +418,6 @@ function appendMessageLocally(sender, message, monologue = null) {
     container.scrollTop = container.scrollHeight;
 }
 
-// Подобрена логика за бутоните за бързи команди (Запиши факт, Пеперуден ефект и др.)
 function setQuickPrompt(text) {
     const textarea = document.getElementById("chat-input");
     if (!textarea) return;
@@ -374,7 +431,6 @@ function setQuickPrompt(text) {
         return;
     }
 
-    // Ако потребителят е написал нещо в полето за чат, взимаме го и го комбинираме с бутона директно
     let finalMessage = text;
     if (currentInputText) {
         if (text.includes("Запиши факт")) {
