@@ -28,24 +28,39 @@ function initTemplatesAndExtras() {
 
 // Меню/Прозорец с готови шаблони за факти в различни папки
 function showFactTemplatesModal() {
-    const templates = {
-        "Маршрути": "Шаблон за Маршрут:\n1. Начална точка:\n2. Междинни спирки:\n3. Крайна дестинация:\n4. Времетраене и особености:",
-        "Технически данни": "Шаблон за Технически данни:\n- Име на модула:\n- Версия:\n- Параметри и изисквания:\n- Бележки:",
-        "Общи бележки": "Шаблон за Бележки:\n- Дата:\n- Основна тема:\n- Решения и задачи:"
-    };
+    const choice = prompt(
+        "Изберете шаблон с цифра:\n" +
+        "1 - Маршрути\n" +
+        "2 - Технически данни\n" +
+        "3 - Общи бележки"
+    );
 
-    let choice = prompt("Избери шаблон за факт:\n1. Маршрути\n2. Технически данни\n3. Общи бележки\n\nНапиши името на шаблона (Маршрути, Технически данни или Общи бележки):");
-    
-    if (choice && templates[choice]) {
-        const contentArea = document.getElementById("fact-content-input") || document.getElementById("chat-input");
-        if (contentArea) {
-            contentArea.value = templates[choice];
-            alert(`Шаблонът '${choice}' е зареден успешно! Можеш да го редактираш и запишеш.`);
-        } else {
-            alert(templates[choice]);
-        }
-    } else if (choice) {
-        alert("Непознат шаблон. Моля, изберете точно име от списъка.");
+    if (!choice) return;
+
+    let selectedText = "";
+    let templateName = "";
+
+    if (choice.trim() === "1") {
+        selectedText = "Шаблон за Маршрут:\n1. Начална точка:\n2. Междинни спирки:\n3. Крайна дестинация:\n4. Времетраене и особености:";
+        templateName = "Маршрути";
+    } else if (choice.trim() === "2") {
+        selectedText = "Шаблон за Технически данни:\n- Име на модула:\n- Версия:\n- Параметри и изисквания:\n- Бележки:";
+        templateName = "Технически данни";
+    } else if (choice.trim() === "3") {
+        selectedText = "Шаблон за Общи бележки:\n- Дата:\n- Основна тема:\n- Решения и задачи:";
+        templateName = "Общи бележки";
+    } else {
+        alert("Невалиден избор. Моля, въведете 1, 2 или 3.");
+        return;
+    }
+
+    const contentArea = document.getElementById("fact-content-input") || document.getElementById("chat-input");
+    if (contentArea) {
+        contentArea.value = selectedText;
+        contentArea.focus();
+        alert(`Шаблонът '${templateName}' е зареден успешно!`);
+    } else {
+        alert(selectedText);
     }
 }
 
