@@ -4,8 +4,7 @@ from google.genai import types
 
 def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=None):
     """
-    Извиква официалния Google GenAI SDK (google-genai) и връща речник с отговор и мисъл (monologue),
- точно както app.py ги очаква.
+    Извиква официалния Google GenAI SDK (google-genai) с актуалния модел gemini-2.0-flash.
     """
     try:
         client = genai.Client()
@@ -28,8 +27,9 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
         if context_parts:
             full_prompt = "\n\n".join(context_parts) + f"\n\nПотребителско запитване: {prompt}"
 
+        # Използваме работещия и стабилен модел gemini-2.0-flash
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.0-flash',
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -39,10 +39,9 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
 
         reply_text = response.text if (response and response.text) else "Сигналът е приет, но не беше върнат отговор от AI модела."
         
-        # Връщаме речник с ключовете, които app.py търси
         return {
             "reply": reply_text,
-            "thought": "Анализирах параметрите, контекста и наличните факти през Gemini 2.5 Flash."
+            "thought": "Анализирах параметрите, контекста и наличните факти през Gemini 2.0 Flash."
         }
 
     except Exception as e:
