@@ -6,7 +6,10 @@ function toggleDownloadMenu(event, btn) {
     // Затваряме други отворени менюта
     document.querySelectorAll('.download-dropdown-menu').forEach(m => m.remove());
 
-    const messageText = btn.getAttribute('data-message');
+    // Взимаме текста сигурно, независимо дали е в attribute или dataset
+    const messageText = btn.getAttribute('data-message') || '';
+
+    const encodedText = encodeURIComponent(messageText);
 
     const dropdown = document.createElement('div');
     dropdown.className = 'download-dropdown-menu';
@@ -21,11 +24,11 @@ function toggleDownloadMenu(event, btn) {
 
     dropdown.innerHTML = `
         <div style="padding: 6px 14px; font-size: 0.75rem; color: var(--text-muted, #888); border-bottom: 1px solid var(--border-color, #333);">ИЗТЕГЛЯНЕ НА ФАЙЛ</div>
-        <div class="dropdown-item" onclick="handleExport('${encodeURIComponent(messageText)}', 'docx', false)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📄 Microsoft Word (.docx)</div>
-        <div class="dropdown-item" onclick="handleExport('${encodeURIComponent(messageText)}', 'pdf', false)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📑 PDF документ (.pdf)</div>
+        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'docx', false)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📄 Microsoft Word (.docx)</div>
+        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'pdf', false)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📑 PDF документ (.pdf)</div>
         <div style="border-top: 1px solid var(--border-color, #333); margin: 4px 0;"></div>
-        <div class="dropdown-item" onclick="handleExport('${encodeURIComponent(messageText)}', 'docx', true)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.docx)</div>
-        <div class="dropdown-item" onclick="handleExport('${encodeURIComponent(messageText)}', 'pdf', true)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.pdf)</div>
+        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'docx', true)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.docx)</div>
+        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'pdf', true)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.pdf)</div>
     `;
 
     const rect = btn.getBoundingClientRect();
