@@ -135,3 +135,51 @@ async function handleExport(encodedText, format, saveAsPrompt) {
         alert("Възникна грешка при изтеглянето на файла.");
     }
 }
+
+// ==========================================
+// МОДУЛ 3: УПРАВЛЕНИЕ НА ИЗЧИСТВАНЕТО И КОШЧЕТО ЗА ФАКТИ
+// ==========================================
+
+// Потвърждение преди изчистване на чата
+function confirmClearChat() {
+    if (confirm("Сигурни ли сте, че искате да изчистите чата? Това ще премахсне съобщенията от екрана.")) {
+        // Извикваме оригиналната функция за изчистване или пращаме командата към чат полето
+        const input = document.getElementById('chat-input');
+        if (input) {
+            input.value = "Изтрий всичко";
+            // Ако има бутон за изпращане, го натискаме автоматично
+            const sendBtn = document.querySelector('.btn-send');
+            if (sendBtn) sendBtn.click();
+        }
+    }
+}
+
+// Функция за изтриване на всички факти наведнъж през новото кошче
+async function deleteAllFacts() {
+    if (!confirm("Сигурни ли сте, че искате да изтриете ВСИЧКИ проверени факти и закони в този проект?")) {
+        return;
+    }
+    
+    try {
+        const ws = typeof currentWorkspace !== 'undefined' ? currentWorkspace : 'general';
+        const response = await fetch('/delete_all_facts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ws: ws })
+        });
+        
+        if (response.ok) {
+            // Презареждаме списъка с факти ако има такава глобална функция
+            if (typeof loadFacts === 'function') {
+                loadFacts();
+            } else {
+                location.reload();
+            }
+        } else {
+            alert("Възникна грешка при изтриването на фактите.");
+        }
+    } catch (e) {
+        console.error("Грешка:", e);
+        alert("Грешка при връзка със сървъра.");
+    }
+}
