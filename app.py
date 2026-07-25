@@ -299,20 +299,49 @@ def download_file(ws_name, filename):
 def download_text_file():
     text = request.args.get("text", "")
     ws = request.args.get("ws", "general")
-    file_format = request.args.get("format", "docx") # Хващаме форматирането (docx или pdf)
+    file_format = request.args.get("format", "docx")
     
     import io
     from flask import send_file
     
     mem = io.BytesIO()
-    mem.write(text.encode('utf-8'))
-    mem.seek(0)
     
-    # Според избрания формат задаваме правилното разширение и тип на файла
     if file_format == "pdf":
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+        
+        # Генерираме истински PDF документ
+        c = canvas.Canvas(mem, pagesize=letter)
+        width, height = letter
+        
+        # Простичко разделяне на текста по редове за PDF-а
+        text_lines = text.split("\n")
+        y = height - 40
+        for line in text_lines:
+            if y < 40:  # Нова страница при нужда
+                c.showPage()
+                y = height - 40
+            c.drawString(40, y, line[:100]) # Орязваме дълги редове за безопасност
+            y -= 20
+            
+        c.save()
+        mem.seek(0)
         filename = f"NIKI_Response_{ws}.pdf"
         mimetype = "application/pdf"
+        
     else:
+        from docx import Document
+        
+        # Генерираме истински Word (.docx) документ
+        doc = Document()
+        doc.add_heading(f'Документ от проект: {ws.upper()}', level=1)
+        
+        # Добавяме текста параграф по параграф
+        for paragraph in text.split("\n"):
+            doc.add_paragraph(paragraph)
+            
+        doc.save(mem)
+        mem.seek(0)
         filename = f"NIKI_Response_{ws}.docx"
         mimetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         
