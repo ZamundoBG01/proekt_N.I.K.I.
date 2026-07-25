@@ -6,9 +6,8 @@ function toggleDownloadMenu(event, btn) {
     // Затваряме други отворени менюта
     document.querySelectorAll('.download-dropdown-menu').forEach(m => m.remove());
 
-    // Взимаме текста сигурно, независимо дали е в attribute или dataset
+    // Взимаме текста сигурно от dataset
     const messageText = btn.getAttribute('data-message') || '';
-
     const encodedText = encodeURIComponent(messageText);
 
     const dropdown = document.createElement('div');
@@ -24,12 +23,18 @@ function toggleDownloadMenu(event, btn) {
 
     dropdown.innerHTML = `
         <div style="padding: 6px 14px; font-size: 0.75rem; color: var(--text-muted, #888); border-bottom: 1px solid var(--border-color, #333);">ИЗТЕГЛЯНЕ НА ФАЙЛ</div>
-        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'docx', false)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📄 Microsoft Word (.docx)</div>
-        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'pdf', false)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📑 PDF документ (.pdf)</div>
+        <div class="dropdown-item docx-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📄 Microsoft Word (.docx)</div>
+        <div class="dropdown-item pdf-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📑 PDF документ (.pdf)</div>
         <div style="border-top: 1px solid var(--border-color, #333); margin: 4px 0;"></div>
-        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'docx', true)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.docx)</div>
-        <div class="dropdown-item" onclick="handleExport('${encodedText}', 'pdf', true)" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.pdf)</div>
+        <div class="dropdown-item docx-save-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.docx)</div>
+        <div class="dropdown-item pdf-save-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.pdf)</div>
     `;
+
+    // Закачаме събитията сигурно чрез JS (без рискове от счупване с кавички)
+    dropdown.querySelector('.docx-btn').onclick = () => handleExport(encodedText, 'docx', false);
+    dropdown.querySelector('.pdf-btn').onclick = () => handleExport(encodedText, 'pdf', false);
+    dropdown.querySelector('.docx-save-btn').onclick = () => handleExport(encodedText, 'docx', true);
+    dropdown.querySelector('.pdf-save-btn').onclick = () => handleExport(encodedText, 'pdf', true);
 
     const rect = btn.getBoundingClientRect();
     dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
