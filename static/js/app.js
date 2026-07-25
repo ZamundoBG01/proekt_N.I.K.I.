@@ -207,7 +207,7 @@ function renderChatHistory(history) {
             ${monologueHtml}
             <div class="bubble">${h.message}</div>
             ${actionsHtml}
-            <span class="timestamp">${h.timestamp || getLocalTimeString()}</span>
+            <span class="timestamp">${getLocalTimeString()}</span>
         `;
         container.appendChild(row);
     });
@@ -477,11 +477,9 @@ function setupEventListeners() {
             this.style.height = (this.scrollHeight) + 'px';
         });
 
-        // Enter праща, Shift+Enter или Ctrl+Enter слиза на нов ред
         textarea.addEventListener("keydown", (e) => {
             if (e.key === 'Enter') {
                 if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                    // Позволяваме нов ред
                     return;
                 } else {
                     e.preventDefault();
