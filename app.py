@@ -245,7 +245,7 @@ def download_file(ws_name, filename):
 
 @app.route("/download_text_file")
 def download_text_file():
-    text_content = request.args.get("text", "Симулация от П.І.К.І.")
+    text_content = request.args.get("text", "Симулация от N.I.K.I.")
     response = Response(text_content, mimetype="text/plain")
     response.headers["Content-Disposition"] = "attachment; filename=NIKI_Simulation_Report.txt"
     return response
