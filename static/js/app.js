@@ -80,7 +80,7 @@ async function deleteCurrentWorkspace() {
     if (!confirm(`Сигурни ли сте, че искате да изтриете целия проект '${currentWorkspace}' с всички негови факти и библиотека?`)) return;
 
     try {
-        const res = await fetch('/chat', {
+        await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: "изтрий всичко", workspace: currentWorkspace })
@@ -121,7 +121,7 @@ function renderFacts(facts) {
         li.style.flexDirection = "column";
         li.style.alignItems = "flex-start";
         li.innerHTML = `
-            <div style="display:flex; justify-content:space-width; width:100%; align-items:center; justify-content:space-between;">
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
                 <span style="font-size:0.8rem; font-weight:bold; color:var(--accent-blue);">Факт #${index + 1}</span>
                 <div class="item-actions">
                     <button class="btn-sm btn-secondary" onclick="toggleFactContent(this)">[+]</button>
@@ -141,6 +141,18 @@ function toggleFactContent(btn) {
         btn.textContent = '[-]';
     } else {
         box.style.display = 'none';
+        btn.textContent = '[+]';
+    }
+}
+
+function toggleSection(btnId, contentId) {
+    const content = document.getElementById(contentId);
+    const btn = document.getElementById(btnId);
+    if (content.style.display === 'none') {
+        content.style.display = 'flex';
+        btn.textContent = '[-]';
+    } else {
+        content.style.display = 'none';
         btn.textContent = '[+]';
     }
 }
@@ -275,10 +287,6 @@ async function sendMessage() {
 
     textarea.value = '';
     textarea.style.height = 'auto';
-    
-    if (message.toLowerCase() === "изтрий всичко") {
-        // Изчистваме веднага визуално
-    }
 
     appendMessageLocally('user', message);
     
@@ -286,10 +294,10 @@ async function sendMessage() {
     if (indicator) {
         indicator.style.display = 'block';
         let count = 1;
-        indicator.textContent = `П.І.К.І. анализира параметрите и физичните закони... [ ${count} ]`;
+        indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
         thinkingInterval = setInterval(() => {
             count++;
-            indicator.textContent = `П.І.К.І. анализира параметрите и физичните закони... [ ${count} ]`;
+            indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
         }, 1000);
     }
 
@@ -351,10 +359,30 @@ function appendMessageLocally(sender, message, monologue = null) {
 function setQuickPrompt(text) {
     const textarea = document.getElementById("chat-input");
     if (textarea) {
+        if (text === "Изтрий всичко") {
+            textarea.value = '';
+            textarea.style.height = 'auto';
+            sendMessageUserDirect("изтрий всичко");
+            return;
+        }
         textarea.value = text;
         textarea.style.height = 'auto';
         textarea.style.height = (textarea.scrollHeight) + 'px';
         textarea.focus();
+    }
+}
+
+async function sendMessageUserDirect(msg) {
+    appendMessageLocally('user', msg);
+    try {
+        await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg, workspace: currentWorkspace })
+        });
+        loadWorkspaceData(currentWorkspace, currentSubfolder);
+    } catch (e) {
+        console.error("Грешка:", e);
     }
 }
 
@@ -449,16 +477,12 @@ function setupEventListeners() {
             this.style.height = (this.scrollHeight) + 'px';
         });
 
+        // Enter праща, Shift+Enter или Ctrl+Enter слиза на нов ред
         textarea.addEventListener("keydown", (e) => {
             if (e.key === 'Enter') {
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    const start = textarea.selectionStart;
-                    const end = textarea.selectionEnd;
-                    textarea.value = textarea.value.substring(0, start) + "\n" + textarea.value.substring(end);
-                    textarea.selectionStart = textarea.selectionEnd = start + 1;
-                    textarea.style.height = 'auto';
-                    textarea.style.height = (textarea.scrollHeight) + 'px';
+                if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                    // Позволяваме нов ред
+                    return;
                 } else {
                     e.preventDefault();
                     sendMessage();
