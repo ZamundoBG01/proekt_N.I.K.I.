@@ -271,17 +271,25 @@ def download_file(ws_name, filename):
 def download_text_file():
     text = request.args.get("text", "")
     ws = request.args.get("ws", "general")
+    file_format = request.args.get("format", "docx") # Хващаме форматирането (docx или pdf)
+    
     import io
     from flask import send_file
     
-    # Създаваме текстов/документен файл в паметта за сваляне
     mem = io.BytesIO()
     mem.write(text.encode('utf-8'))
     mem.seek(0)
     
-    filename = f"NIKI_Response_{ws}.txt"
-    return send_file(mem, as_attachment=True, download_name=filename, mimetype="text/plain")
-
+    # Според избрания формат задаваме правилното разширение и тип на файла
+    if file_format == "pdf":
+        filename = f"NIKI_Response_{ws}.pdf"
+        mimetype = "application/pdf"
+    else:
+        filename = f"NIKI_Response_{ws}.docx"
+        mimetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        
+    return send_file(mem, as_attachment=True, download_name=filename, mimetype=mimetype)
+    
 @app.route("/delete_file", methods=["POST"])
 def delete_file():
     data = request.get_json() or {}
