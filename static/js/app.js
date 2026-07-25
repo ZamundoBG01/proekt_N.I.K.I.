@@ -120,12 +120,16 @@ function renderFacts(facts) {
         li.className = "item-row";
         li.style.flexDirection = "column";
         li.style.alignItems = "flex-start";
+        
+        // Безопасно кодиране на съдържанието срещу чупене на кавичките в HTML/JS
+        const safeContent = encodeURIComponent(f.content);
+
         li.innerHTML = `
             <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
                 <span style="font-size:0.8rem; font-weight:bold; color:var(--accent-blue);">Факт #${index + 1}</span>
                 <div class="item-actions">
                     <button class="btn-sm btn-secondary" onclick="toggleFactContent(this)">[+]</button>
-                    <button class="btn-sm btn-danger" onclick="deleteSingleFact('${f.content.replace(/'/g, "\\'")}')">Изтрий</button>
+                    <button class="btn-sm btn-danger" onclick="deleteSingleFactFromEncoded('${safeContent}')">Изтрий</button>
                 </div>
             </div>
             <div class="fact-content-box" style="display:none; font-size:0.8rem; margin-top:6px; color:var(--text-main); white-space:pre-wrap; word-break:break-word;">${f.content}</div>
@@ -157,7 +161,8 @@ function toggleSection(btnId, contentId) {
     }
 }
 
-async function deleteSingleFact(factContent) {
+async function deleteSingleFactFromEncoded(encodedContent) {
+    const factContent = decodeURIComponent(encodedContent);
     if (!confirm("Сигурни ли сте, че искате да изтриете този факт?")) return;
     try {
         await fetch('/chat', {
