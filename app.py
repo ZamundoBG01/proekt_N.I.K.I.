@@ -4,6 +4,9 @@ import shutil
 from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import threading
 
+from export_routes import export_bp
+app.register_blueprint(export_bp)
+
 from database import (
     init_db, get_db_connection, get_workspace_facts, 
     add_workspace_fact, save_chat_message, get_chat_history, clear_workspace_data
