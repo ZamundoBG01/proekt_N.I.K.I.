@@ -154,6 +154,24 @@ def move_file():
     except Exception as e:
         return jsonify({"message": f"Грешка при преместване: {str(e)}"}), 500
 
+@app.route("/delete_all_facts", methods=["POST"])
+def delete_all_facts():
+    data = request.get_json() or {}
+    ws_name = sanitize_ws_name(data.get("ws", "general"))
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM verified_facts WHERE workspace = %s;", (ws_name,))
+                conn.commit()
+            return jsonify({"status": "success", "message": "Всички факти бяха изтрити."})
+        except Exception as e:
+            print(f"Delete All Facts Error: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+        finally:
+            conn.close()
+    return jsonify({"status": "error", "message": "Няма връзка с базата данни."}), 500
+
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json() or {}
