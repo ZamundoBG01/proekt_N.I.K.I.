@@ -1,5 +1,6 @@
 let currentWorkspace = 'general';
 let currentSubfolder = '';
+let thinkingInterval = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     initClock();
@@ -13,8 +14,13 @@ function initClock() {
     if (!clockEl) return;
     setInterval(() => {
         const now = new Date();
-        clockEl.textContent = now.toLocaleTimeString();
+        clockEl.textContent = now.toLocaleTimeString() + " ч.";
     }, 1000);
+}
+
+function getLocalTimeString() {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 async function loadWorkspaces() {
@@ -67,6 +73,27 @@ async function createNewWorkspace() {
     }
 }
 
+async function deleteCurrentWorkspace() {
+    if (currentWorkspace === 'general') {
+        return alert("Основният проект 'general' не може да бъде изтрит.");
+    }
+    if (!confirm(`Сигурни ли сте, че искате да изтриете целия проект '${currentWorkspace}' с всички негови факти и библиотека?`)) return;
+
+    try {
+        const res = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: "изтрий всичко", workspace: currentWorkspace })
+        });
+        currentWorkspace = 'general';
+        await loadWorkspaces();
+        loadWorkspaceData('general');
+        alert("Проектът беше изтрит успешно.");
+    } catch (e) {
+        console.error("Грешка при изтриване на проект:", e);
+    }
+}
+
 async function loadWorkspaceData(wsName, subfolder = '') {
     try {
         const res = await fetch(`/workspace_data/${encodeURIComponent(wsName)}?subfolder=${encodeURIComponent(subfolder)}`);
@@ -88,19 +115,54 @@ function renderFacts(facts) {
         list.innerHTML = '<li class="item-row" style="color:var(--text-muted);">Няма записани факти.</li>';
         return;
     }
-    facts.forEach(f => {
+    facts.forEach((f, index) => {
         const li = document.createElement("li");
         li.className = "item-row";
-        li.innerHTML = `<span style="font-size:0.8rem;">${f.content}</span>`;
+        li.style.flexDirection = "column";
+        li.style.alignItems = "flex-start";
+        li.innerHTML = `
+            <div style="display:flex; justify-content:space-width; width:100%; align-items:center; justify-content:space-between;">
+                <span style="font-size:0.8rem; font-weight:bold; color:var(--accent-blue);">Факт #${index + 1}</span>
+                <div class="item-actions">
+                    <button class="btn-sm btn-secondary" onclick="toggleFactContent(this)">[+]</button>
+                    <button class="btn-sm btn-danger" onclick="deleteSingleFact('${f.content.replace(/'/g, "\\'")}')">Изтрий</button>
+                </div>
+            </div>
+            <div class="fact-content-box" style="display:none; font-size:0.8rem; margin-top:6px; color:var(--text-main); white-space:pre-wrap; word-break:break-word;">${f.content}</div>
+        `;
         list.appendChild(li);
     });
+}
+
+function toggleFactContent(btn) {
+    const box = btn.parentElement.parentElement.nextElementSibling;
+    if (box.style.display === 'none') {
+        box.style.display = 'block';
+        btn.textContent = '[-]';
+    } else {
+        box.style.display = 'none';
+        btn.textContent = '[+]';
+    }
+}
+
+async function deleteSingleFact(factContent) {
+    if (!confirm("Сигурни ли сте, че искате да изтриете този факт?")) return;
+    try {
+        await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `изтрий факт: ${factContent}`, workspace: currentWorkspace })
+        });
+        loadWorkspaceData(currentWorkspace, currentSubfolder);
+    } catch (e) {
+        console.error("Грешка при изтриване на факт:", e);
+    }
 }
 
 function renderChatHistory(history) {
     const container = document.getElementById("messages-container");
     if (!container) return;
     
-    // Запазваме индикатора за мислене, ако го има
     const indicator = document.getElementById("thinking-indicator");
     container.innerHTML = '';
     if (indicator) container.appendChild(indicator);
@@ -119,10 +181,21 @@ function renderChatHistory(history) {
             `;
         }
 
+        let actionsHtml = '';
+        if (h.sender === 'niki') {
+            actionsHtml = `
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn-sm btn-primary" onclick="copyMessageText(this)">📋 Копирай</button>
+                    <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message)}&ws=${encodeURIComponent(currentWorkspace)}" target="_blank">📥 Свали .docx</a>
+                </div>
+            `;
+        }
+
         row.innerHTML = `
             ${monologueHtml}
             <div class="bubble">${h.message}</div>
-            <span class="timestamp">${h.timestamp || ''}</span>
+            ${actionsHtml}
+            <span class="timestamp">${h.timestamp || getLocalTimeString()}</span>
         `;
         container.appendChild(row);
     });
@@ -185,6 +258,14 @@ function toggleMonologue(btn) {
     }
 }
 
+function copyMessageText(btn) {
+    const bubbleText = btn.parentElement.previousElementSibling.textContent;
+    navigator.clipboard.writeText(bubbleText).then(() => {
+        btn.textContent = '✅ Копирано!';
+        setTimeout(() => { btn.textContent = '📋 Копирай'; }, 2000);
+    });
+}
+
 async function sendMessage() {
     const textarea = document.getElementById("chat-input");
     const message = textarea.value.trim();
@@ -193,10 +274,24 @@ async function sendMessage() {
     if (!message) return;
 
     textarea.value = '';
+    textarea.style.height = 'auto';
+    
+    if (message.toLowerCase() === "изтрий всичко") {
+        // Изчистваме веднага визуално
+    }
+
     appendMessageLocally('user', message);
     
     const indicator = document.getElementById("thinking-indicator");
-    if (indicator) indicator.style.display = 'block';
+    if (indicator) {
+        indicator.style.display = 'block';
+        let count = 1;
+        indicator.textContent = `П.І.К.І. анализира параметрите и физичните закони... [ ${count} ]`;
+        thinkingInterval = setInterval(() => {
+            count++;
+            indicator.textContent = `П.І.К.І. анализира параметрите и физичните закони... [ ${count} ]`;
+        }, 1000);
+    }
 
     try {
         const res = await fetch('/chat', {
@@ -206,11 +301,13 @@ async function sendMessage() {
         });
         const data = await res.json();
         
+        if (thinkingInterval) clearInterval(thinkingInterval);
         if (indicator) indicator.style.display = 'none';
         
         appendMessageLocally('niki', data.reply, data.monologue);
         loadWorkspaceData(currentWorkspace, currentSubfolder);
     } catch (e) {
+        if (thinkingInterval) clearInterval(thinkingInterval);
         if (indicator) indicator.style.display = 'none';
         console.error("Грешка при изпращане на съобщение:", e);
     }
@@ -231,10 +328,21 @@ function appendMessageLocally(sender, message, monologue = null) {
         `;
     }
 
+    let actionsHtml = '';
+    if (sender === 'niki') {
+        actionsHtml = `
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="btn-sm btn-primary" onclick="copyMessageText(this)">📋 Копирай</button>
+                <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(message)}&ws=${encodeURIComponent(currentWorkspace)}" target="_blank">📥 Свали .docx</a>
+            </div>
+        `;
+    }
+
     row.innerHTML = `
         ${monologueHtml}
         <div class="bubble">${message}</div>
-        <span class="timestamp">Току-що</span>
+        ${actionsHtml}
+        <span class="timestamp">${getLocalTimeString()}</span>
     `;
     container.appendChild(row);
     container.scrollTop = container.scrollHeight;
@@ -242,7 +350,12 @@ function appendMessageLocally(sender, message, monologue = null) {
 
 function setQuickPrompt(text) {
     const textarea = document.getElementById("chat-input");
-    if (textarea) textarea.value = text;
+    if (textarea) {
+        textarea.value = text;
+        textarea.style.height = 'auto';
+        textarea.style.height = (textarea.scrollHeight) + 'px';
+        textarea.focus();
+    }
 }
 
 function navigateUp() {
@@ -331,10 +444,25 @@ function toggleFullscreen() {
 function setupEventListeners() {
     const textarea = document.getElementById("chat-input");
     if (textarea) {
+        textarea.addEventListener("input", function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
         textarea.addEventListener("keydown", (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                sendMessage();
+            if (e.key === 'Enter') {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    textarea.value = textarea.value.substring(0, start) + "\n" + textarea.value.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = start + 1;
+                    textarea.style.height = 'auto';
+                    textarea.style.height = (textarea.scrollHeight) + 'px';
+                } else {
+                    e.preventDefault();
+                    sendMessage();
+                }
             }
         });
     }
