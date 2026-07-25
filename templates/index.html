@@ -13,7 +13,7 @@
             <div class="chat-header">
                 <div class="header-left">
                     <h1>П.І.К.І.</h1>
-                    <div id="live-clock">00:00:00</div>
+                    <div id="live-clock">00:00:00 ч.</div>
                 </div>
                 <div class="header-actions">
                     <span class="project-badge" id="current-ws-badge">Проект: GENERAL</span>
@@ -22,18 +22,18 @@
             </div>
 
             <div class="messages-container" id="messages-container">
-                <div id="thinking-indicator">П.І.К.І. анализира параметрите и физичните закони...</div>
+                <div id="thinking-indicator">П.І.К.І. анализира параметрите и физичните закони... [ 1 ]</div>
             </div>
 
             <div class="input-container">
                 <div class="quick-actions">
                     <button class="btn-quick" onclick="setQuickPrompt('Симулирай ефекта на пеперудата върху следния елемент: ')">🦋 Пеперуден ефект</button>
                     <button class="btn-quick" onclick="setQuickPrompt('Анализирай физичната и биологична достоверност на: ')">🔬 Физичен анализ</button>
-                    <button class="btn-quick" onclick="setQuickPrompt('Запиши следния факт в базата данни: ')">💾 Запиши факт</button>
+                    <button class="btn-quick" onclick="setQuickPrompt('Запиши: ')">💾 Запиши факт</button>
                     <button class="btn-quick" onclick="setQuickPrompt('Изтрий всичко')">🗑️ Изчисти всичко</button>
                 </div>
                 <div class="input-wrapper">
-                    <textarea id="chat-input" placeholder="Напишете инструкция или въпрос към П.І.К.І. (Ctrl+Enter за изпращане)..."></textarea>
+                    <textarea id="chat-input" placeholder="Напишете инструкция или въпрос към П.І.К.І. (Enter за изпращане, Ctrl+Enter за нов ред)..."></textarea>
                     <button class="btn-send" onclick="sendMessage()">Изпрати</button>
                 </div>
                 <div class="auto-run-toggle">
@@ -48,8 +48,11 @@
             <!-- Управление на проекти -->
             <div class="sidebar-card">
                 <div class="card-header">Проекти (Workspaces)</div>
-                <select id="workspace-select" class="form-control" onchange="changeWorkspace()"></select>
-                <div style="display: flex; gap: 6px;">
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <select id="workspace-select" class="form-control" onchange="changeWorkspace()"></select>
+                    <button class="btn-sm btn-danger" onclick="deleteCurrentWorkspace()" title="Изтрий целия проект">🗑️</button>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 6px;">
                     <input type="text" id="new-workspace-name" class="form-control" placeholder="Идеен свят...">
                     <button class="btn-sm btn-primary" onclick="createNewWorkspace()">Създай</button>
                 </div>
