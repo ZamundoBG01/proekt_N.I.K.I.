@@ -12,7 +12,7 @@ def call_ai_engine(prompt, context=None):
         # API ключът автоматично се чете от променливите на средата (os.environ["GEMINI_API_KEY"])
         client = genai.Client()
 
-        # Подготовка на съдържанието / системни инструкции (по желание)
+        # Подготовка на съдържанието / системни инструкции
         system_instruction = (
             "Ти си N.I.K.I. - интелигентен асистент и системна единица на потребителя. "
             "Отговаряй точно, полезно и професионално на български език."
@@ -22,7 +22,7 @@ def call_ai_engine(prompt, context=None):
         if context:
             full_prompt = f"Контекст: {context}\n\nЗапитване: {prompt}"
 
-        # Използваме най-новия и препоръчителен стандартен модел за текстови задачи
+        # Използваме стандартния модел за текстови задачи
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=full_prompt,
@@ -38,5 +38,12 @@ def call_ai_engine(prompt, context=None):
             return "Сигналът е приет, но не беше върнат отговор от AI модела."
 
     except Exception as e:
-        # При евентуална грешка (напр. липсващ API ключ или мрежов проблем) връщаме съобщението за грешка
         return f"Грешка при връзка с AI ядрото: {str(e)}"
+
+
+def auto_run_worker(*args, **kwargs):
+    """
+    Фонова функция (worker), очаквана от app.py, за да предотврати ImportError.
+    Може да се разшири при нужда от фонови задачи.
+    """
+    pass
