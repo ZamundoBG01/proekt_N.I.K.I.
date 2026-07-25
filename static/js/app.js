@@ -14,7 +14,7 @@ function initClock() {
     if (!clockEl) return;
     setInterval(() => {
         const now = new Date();
-        clockEl.textContent = now.toLocaleTimeString() + " ч.";
+        clockEl.textContent = now.toLocaleTimeString();
     }, 1000);
 }
 
