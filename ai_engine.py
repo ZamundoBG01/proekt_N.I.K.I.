@@ -27,7 +27,7 @@ def call_ai_engine(prompt, existing_facts=None, file_list=None, library_text=Non
         if context_parts:
             full_prompt = "\n\n".join(context_parts) + f"\n\nПотребителско запитване: {prompt}"
 
-        # Използваме работещия и стабилен модел gemini-2.0-flash
+        # Използваме работещия модел gemini-2.0-flash
         response = client.models.generate_content(
             model='gemini-2.0-flash',
             contents=full_prompt,
