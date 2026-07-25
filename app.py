@@ -4,9 +4,15 @@ import shutil
 from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import threading
 
+# 1. Първо създаваме приложението
+app = Flask(__name__)
+app.json.ensure_ascii = False
+
+# 2. Веднага след това регистрираме новите пътища за сваляне
 from export_routes import export_bp
 app.register_blueprint(export_bp)
 
+# 3. Продължават останалите импорти
 from database import (
     init_db, get_db_connection, get_workspace_facts, 
     add_workspace_fact, save_chat_message, get_chat_history, clear_workspace_data
@@ -18,9 +24,6 @@ from file_manager import (
 from ai_engine import call_ai_engine, auto_run_worker
 
 init_db()
-
-app = Flask(__name__)
-app.json.ensure_ascii = False
 
 @app.route("/")
 def index():
@@ -245,13 +248,6 @@ def download_file(ws_name, filename):
     clean_ws = sanitize_ws_name(ws_name)
     library_base = os.path.join(WORKSPACES_DIR, clean_ws, "library")
     return send_from_directory(library_base, filename, as_attachment=True)
-
-@app.route("/download_text_file")
-def download_text_file():
-    text_content = request.args.get("text", "Симулация от N.I.K.I.")
-    response = Response(text_content, mimetype="text/plain")
-    response.headers["Content-Disposition"] = "attachment; filename=NIKI_Simulation_Report.txt"
-    return response
 
 @app.route("/delete_file", methods=["POST"])
 def delete_file():
