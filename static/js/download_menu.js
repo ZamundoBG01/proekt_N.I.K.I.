@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 // ==========================================
-// МОДУЛ 2: ПАДАЩО МЕНЮ ЗА ИЗТЕГЛЯНЕ (Google Docs стил)
+// МОДУЛ 2: ПАДАЩО МЕНЮ ЗА ИЗТЕГЛЯНЕ (Google Docs стил - Скрито POST формулярче)
 // ==========================================
 function toggleDownloadMenu(event, btn) {
     event.stopPropagation();
@@ -35,7 +35,6 @@ function toggleDownloadMenu(event, btn) {
     document.querySelectorAll('.download-dropdown-menu').forEach(m => m.remove());
 
     const messageText = btn.getAttribute('data-message') || '';
-    const encodedText = encodeURIComponent(messageText);
 
     const dropdown = document.createElement('div');
     dropdown.className = 'download-dropdown-menu';
@@ -52,15 +51,10 @@ function toggleDownloadMenu(event, btn) {
         <div style="padding: 6px 14px; font-size: 0.75rem; color: var(--text-muted, #888); border-bottom: 1px solid var(--border-color, #333);">ИЗТЕГЛЯНЕ НА ФАЙЛ</div>
         <div class="dropdown-item docx-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📄 Microsoft Word (.docx)</div>
         <div class="dropdown-item pdf-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--text-main, #fff);">📑 PDF документ (.pdf)</div>
-        <div style="border-top: 1px solid var(--border-color, #333); margin: 4px 0;"></div>
-        <div class="dropdown-item docx-save-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.docx)</div>
-        <div class="dropdown-item pdf-save-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.pdf)</div>
     `;
 
-    dropdown.querySelector('.docx-btn').onclick = () => handleExport(encodedText, 'docx', false);
-    dropdown.querySelector('.pdf-btn').onclick = () => handleExport(encodedText, 'pdf', false);
-    dropdown.querySelector('.docx-save-btn').onclick = () => handleExport(encodedText, 'docx', true);
-    dropdown.querySelector('.pdf-save-btn').onclick = () => handleExport(encodedText, 'pdf', true);
+    dropdown.querySelector('.docx-btn').onclick = () => submitExportForm(messageText, 'docx');
+    dropdown.querySelector('.pdf-btn').onclick = () => submitExportForm(messageText, 'pdf');
 
     const rect = btn.getBoundingClientRect();
     dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
@@ -77,59 +71,35 @@ function toggleDownloadMenu(event, btn) {
     setTimeout(() => document.addEventListener('click', closeMenu), 10);
 }
 
-async function handleExport(encodedText, format, saveAsPrompt) {
+function submitExportForm(text, format) {
     document.querySelectorAll('.download-dropdown-menu').forEach(m => m.remove());
     
-    const text = decodeURIComponent(encodedText);
     const endpoint = format === 'pdf' ? '/download_pdf_new' : '/download_docx_new';
-    
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: text, ws: typeof currentWorkspace !== 'undefined' ? currentWorkspace : 'general' })
-        });
-        
-        if (!response.ok) throw new Error("Грешка при генериране на файла.");
-        const blob = await response.blob();
-        
-        const filename = `document.${format === 'pdf' ? 'pdf' : 'docx'}`;
+    const currentWs = typeof currentWorkspace !== 'undefined' ? currentWorkspace : 'general';
 
-        if (saveAsPrompt && window.showSaveFilePicker) {
-            try {
-                const options = {
-                    suggestedName: filename,
-                    types: [{
-                        description: format === 'pdf' ? 'PDF документ' : 'Word документ',
-                        accept: {
-                            [format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']: [`.${format}`]
-                        }
-                    }]
-                };
-                const handle = await window.showSaveFilePicker(options);
-                const writable = await handle.createWritable();
-                await writable.write(blob);
-                await writable.close();
-                return;
-            } catch (err) {
-                if (err.name === 'AbortError') return;
-            }
-        }
+    // Създаваме временна скритост форма, която праща POST заявка с пълен обем текст без лимити в URL-а
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = endpoint;
+    form.target = '_blank';
 
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+    const textInput = document.createElement('input');
+    textInput.type = 'hidden';
+    textInput.name = 'text';
+    textInput.value = text;
+    form.appendChild(textInput);
 
-    } catch (e) {
-        console.error("Грешка:", e);
-        alert("Възникна грешка при изтеглянето на файла.");
-    }
+    const wsInput = document.createElement('input');
+    wsInput.type = 'hidden';
+    wsInput.name = 'ws';
+    wsInput.value = currentWs;
+    form.appendChild(wsInput);
+
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
 }
+
 
 // ==========================================
 // МОДУЛ 3: УПРАВЛЕНИЕ НА ИЗЧИСТВАНЕТО И КОШЧЕТО ЗА ФАКТИ
