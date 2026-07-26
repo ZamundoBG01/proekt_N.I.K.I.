@@ -45,6 +45,10 @@
 
         <!-- Дясна лента (Sidebar) за проекти, факти и библиотека -->
         <div class="sidebar">
+            
+            <!-- СИСТЕМНАТА ЛЕНТА ВЕЧЕ Е НАЙ-ОТГОРЕ (КАКТО ПОДОБАВА НА МЕНЮ) -->
+            {% include 'system_toolbar.html' %}
+
             <!-- Управление на проекти -->
             <div class="sidebar-card">
                 <div class="card-header">Проекти (Workspaces)</div>
@@ -57,9 +61,6 @@
                     <button class="btn-sm btn-primary" onclick="createNewWorkspace()">Създай</button>
                 </div>
             </div>
-
-            <!-- ВКЛЮЧВАМЕ НОВАТА СИСТЕМНА ЛЕНТА С >> И БЕКЪП -->
-            {% include 'system_toolbar.html' %}
 
             <!-- Проверени факти -->
             <div class="sidebar-card">
