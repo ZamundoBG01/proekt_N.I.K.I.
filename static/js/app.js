@@ -227,8 +227,8 @@ function renderChatHistory(history) {
             actionsHtml = `
                <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center;">
                     <button class="btn-sm btn-primary" onclick="copyMessageText(this)">📋 Копирай</button>
-                    <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || '')}&ws=${encodeURIComponent(currentWorkspace)}&format=docx" target="_blank">📥 Word</a>
-                    <a class="btn-sm btn-secondary" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || '')}&ws=${encodeURIComponent(currentWorkspace)}&format=pdf" target="_blank">📥 PDF</a>
+                    <button class="btn-sm btn-success" onclick="downloadMessageFile(this, 'docx')">📥 Word</button>
+                    <button class="btn-sm btn-secondary" onclick="downloadMessageFile(this, 'pdf')">📥 PDF</button>
                     <button class="btn-sm btn-secondary" onclick="shareMessageText(this)">📤 Сподели</button>
                 </div>
             `;
@@ -414,9 +414,11 @@ function appendMessageLocally(sender, message, monologue = null) {
     let actionsHtml = '';
     if (sender === 'niki') {
         actionsHtml = `
-            <div style="display:flex; gap:8px; margin-top:8px;">
+            <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center;">
                 <button class="btn-sm btn-primary" onclick="copyMessageText(this)">📋 Копирай</button>
-                <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(message)}&ws=${encodeURIComponent(currentWorkspace)}" target="_blank">📥 Свали .docx</a>
+                <button class="btn-sm btn-success" onclick="downloadMessageFile(this, 'docx')">📥 Word</button>
+                <button class="btn-sm btn-secondary" onclick="downloadMessageFile(this, 'pdf')">📥 PDF</button>
+                <button class="btn-sm btn-secondary" onclick="shareMessageText(this)">📤 Сподели</button>
             </div>
         `;
     }
@@ -604,4 +606,34 @@ function setupEventListeners() {
             }
         });
     }
+}
+
+function downloadMessageFile(btn, format) {
+    const bubbleText = btn.parentElement.previousElementSibling.textContent;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/download_text_file';
+    form.target = '_blank';
+
+    const textInput = document.createElement('input');
+    textInput.type = 'hidden';
+    textInput.name = 'text';
+    textInput.value = bubbleText;
+    form.appendChild(textInput);
+
+    const wsInput = document.createElement('input');
+    wsInput.type = 'hidden';
+    wsInput.name = 'ws';
+    wsInput.value = currentWorkspace;
+    form.appendChild(wsInput);
+
+    const formatInput = document.createElement('input');
+    formatInput.type = 'hidden';
+    formatInput.name = 'format';
+    formatInput.value = format;
+    form.appendChild(formatInput);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
