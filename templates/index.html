@@ -58,6 +58,9 @@
                 </div>
             </div>
 
+            <!-- ВКЛЮЧВАМЕ НОВАТА СИСТЕМНА ЛЕНТА С >> И БЕКЪП -->
+            {% include 'system_toolbar.html' %}
+
             <!-- Проверени факти -->
             <div class="sidebar-card">
                 <div class="card-header">
@@ -94,11 +97,53 @@
         </div>
     </div>
 
-    <!-- Твоят основен работещ файл -->
+    <!-- JavaScript файлове -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <!-- Новият файл за падащото меню в стил Google Docs -->
     <script src="{{ url_for('static', filename='js/download_menu.js') }}"></script>
     <script src="{{ url_for('static', filename='js/extras.js') }}"></script>
     <script src="{{ url_for('static', filename='js/thinking_indicator.js') }}"></script>
+
+    <!-- СКРИПТОВЕ ЗА БЕКЪП И УПРАВЛЕНИЕ НА СИСТЕМНАТА ЛЕНТА -->
+    <script>
+        function triggerBackup() {
+            window.location.href = '/api/backup';
+        }
+
+        function triggerRestorePrompt() {
+            let input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.zip';
+            input.onchange = e => {
+                let file = e.target.files[0];
+                if (!file) return;
+
+                let formData = new FormData();
+                formData.append('backup_file', file);
+
+                if (confirm(`Сигурни ли сте, че искате да възстановите системата от архив "${file.name}"? Това ще презапише текущите данни.`)) {
+                    fetch('/api/restore', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        alert(data.message || 'Готово!');
+                        if(data.status === 'success') {
+                            location.reload();
+                        }
+                    })
+                    .catch(err => alert('Грешка при възстановяване: ' + err));
+                }
+            };
+            input.click();
+        }
+
+        function toggleMoreTools() {
+            let panel = document.getElementById('niki-hidden-tools-panel');
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+    </script>
 </body>
 </html>
