@@ -1,0 +1,29 @@
+<!-- ======================================================== -->
+<!-- СИСТЕМНА ЛЕНТА НА Н.И.К.И. (Управление и Инструменти)    -->
+<!-- ======================================================== -->
+<div id="niki-system-toolbar" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 5px; background: rgba(0,0,0,0.05); border-radius: 6px;">
+    
+    <!-- ТУК СЕ НАМИРА БУТОНЪТ ЗА БЕКЪП НА ПАМЕТТА -->
+    <button onclick="triggerBackup()" class="btn btn-sm btn-outline-success" title="Свали цялата памет и файлове">
+        💾 Бекъп
+    </button>
+
+    <!-- ТУК СЕ НАМИРА БУТОНЪТ ЗА ВЪЗСТАНОВЯВАНЕ (РЕСТОРТ) -->
+    <button onclick="triggerRestorePrompt()" class="btn btn-sm btn-outline-warning" title="Възстанови от архив">
+        📥 Възстанови
+    </button>
+
+    <!-- БУТОН СТРЕЛКА (>>) ЗА БЪДЕЩИ СКРИТИ ФУНКЦИИ -->
+    <button id="niki-more-tools-btn" class="btn btn-sm btn-outline-secondary" onclick="toggleMoreTools()" title="Още системни инструменти">
+        >>
+    </button>
+
+</div>
+
+<!-- СКРИТ ПАНЕЛ ЗА БЪДЕЩИ БУТОНИ И ЕКСТРИ (Ще се отваря при цъкване на >>) -->
+<div id="niki-hidden-tools-panel" style="display: none; margin-bottom: 10px; padding: 8px; background: rgba(0,0,0,0.08); border-radius: 6px; border: 1px dashed #ccc;">
+    <small style="color: #666; display: block; margin-bottom: 5px;">⚙️ Бъдещи модули:</small>
+    <!-- ТУК ПО-КЪСНО ЩЕ ДОБАВЯМЕ НОВИ БУТОНИ НА ВТОРИ РЕД ИЛИ В ПАНЕЛА -->
+    <span style="font-size: 11px; color: #888;">(Тук по-късно ще добавяме нови неща)</span>
+</div>
+<!-- ======================================================== -->
