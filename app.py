@@ -12,7 +12,11 @@ app.json.ensure_ascii = False
 from export_routes import export_bp
 app.register_blueprint(export_bp)
 
-# 3. Продължават останалите импорти
+# 3. Регистрация на системните пътища за бекъп и възстановяване
+from backup_routes import backup_bp
+app.register_blueprint(backup_bp)
+
+# 4. Продължават останалите импорти
 from database import (
     init_db, get_db_connection, get_workspace_facts, 
     add_workspace_fact, save_chat_message, get_chat_history, clear_workspace_data
