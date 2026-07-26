@@ -40,11 +40,14 @@ def download_docx_new():
         mem.write(text.encode('utf-8'))
         mem.seek(0)
 
+    filename = f"NIKI_Response_{ws}.docx"
+    mimetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
     return send_file(
         mem, 
         as_attachment=True, 
-        download_name=f"NIKI_Response_{ws}.docx", 
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        download_name=filename, 
+        mimetype=mimetype
     )
 
 @export_bp.route('/download_pdf_new', methods=['GET', 'POST'])
@@ -71,17 +74,35 @@ def download_pdf_new():
     try:
         from reportlab.lib.pagesizes import letter
         from reportlab.pdfgen import canvas
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        
         c = canvas.Canvas(mem, pagesize=letter)
         width, height = letter
-        c.setFont("Helvetica", 11)
+        
+        font_name = "Helvetica"
+        windows_font_path = "C:/Windows/Fonts/arial.ttf"
+        linux_font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        
+        if os.path.exists(windows_font_path):
+            pdfmetrics.registerFont(TTFont('CustomUnicodeFont', windows_font_path))
+            font_name = 'CustomUnicodeFont'
+        elif os.path.exists(linux_font_path):
+            pdfmetrics.registerFont(TTFont('CustomUnicodeFont', linux_font_path))
+            font_name = 'CustomUnicodeFont'
+
+        c.setFont(font_name, 11)
+        
+        text_lines = text.split("\n")
         y = height - 40
-        for line in text.split("\n"):
+        for line in text_lines:
             if y < 40:
                 c.showPage()
-                c.setFont("Helvetica", 11)
+                c.setFont(font_name, 11)
                 y = height - 40
             c.drawString(40, y, str(line)[:90])
             y -= 20
+            
         c.save()
         mem.seek(0)
     except Exception as e:
@@ -89,9 +110,12 @@ def download_pdf_new():
         mem.write(text.encode('latin-1', errors='ignore'))
         mem.seek(0)
 
+    filename = f"NIKI_Response_{ws}.pdf"
+    mimetype = "application/pdf"
+
     return send_file(
         mem, 
         as_attachment=True, 
-        download_name=f"NIKI_Response_{ws}.pdf", 
-        mimetype="application/pdf"
+        download_name=filename, 
+        mimetype=mimetype
     )
