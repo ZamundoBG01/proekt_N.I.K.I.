@@ -165,7 +165,6 @@ def move_file_workspace():
     import shutil
     import os
     
-    # Тук използваме твоята логика за папка с проекти (провери дали твоята папка се казва така, например workspaces или друга)
     base_dir = "workspaces" 
     source_path = os.path.join(base_dir, source_ws, subfolder, filename)
     target_dir = os.path.join(base_dir, target_ws, subfolder)
@@ -295,11 +294,11 @@ def download_file(ws_name, filename):
     library_base = os.path.join(WORKSPACES_DIR, clean_ws, "library")
     return send_from_directory(library_base, filename, as_attachment=True)
 
-@app.route("/download_text_file")
+@app.route("/download_text_file", methods=["POST"])
 def download_text_file():
-    text = request.args.get("text", "")
-    ws = request.args.get("ws", "general")
-    file_format = request.args.get("format", "docx")
+    text = request.form.get("text", "")
+    ws = request.form.get("ws", "general")
+    file_format = request.form.get("format", "docx")
     
     import io
     from flask import send_file
@@ -316,10 +315,8 @@ def download_text_file():
         c = canvas.Canvas(mem, pagesize=letter)
         width, height = letter
         
-        # Опитваме се да регистрираме системен шрифт за кирилица (Arial или DejaVuSans ако има)
-        font_name = "Helvetica" # по подразбиране
+        font_name = "Helvetica"
         try:
-            # Проверяваме за стандартен Windows шрифт в контейнера или сървъра
             windows_font_path = "C:/Windows/Fonts/arial.ttf"
             linux_font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
             
@@ -341,7 +338,6 @@ def download_text_file():
                 c.showPage()
                 c.setFont(font_name, 11)
                 y = height - 40
-            # Избягваме счупвания на дълги редове
             c.drawString(40, y, str(line)[:90])
             y -= 20
             
@@ -353,11 +349,9 @@ def download_text_file():
     else:
         from docx import Document
         
-        # Генерираме истински Word (.docx) документ
         doc = Document()
         doc.add_heading(f'Документ от проект: {ws.upper()}', level=1)
         
-        # Добавяме текста параграф по параграф
         for paragraph in text.split("\n"):
             doc.add_paragraph(paragraph)
             
