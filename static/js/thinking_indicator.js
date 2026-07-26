@@ -1,34 +1,28 @@
-// Индикатор за мислене с таймер за Н.И.К.И.
+// Компактен индикатор за мислене за Н.И.К.И.
 (function() {
     let thinkingInterval = null;
 
     window.showNikThinking = function() {
         window.hideNikThinking();
 
-        // Търсим контейнера за съобщения в твоя интерфейс
-        const chatContainer = document.querySelector('.chat-messages') || document.querySelector('#chat-container') || document.querySelector('main') || document.body;
+        // Търсим точното място където се показват съобщенията в чата
+        const chatContainer = document.querySelector('.chat-messages') || document.querySelector('#chat-container') || document.querySelector('main');
         if (!chatContainer) return;
 
         const thinkingDiv = document.createElement('div');
         thinkingDiv.id = 'niki-thinking-indicator';
-        thinkingDiv.style.cssText = 'padding: 10px 15px; margin: 10px 0; background: rgba(0, 255, 100, 0.1); border-left: 3px solid #00ff66; color: #fff; font-family: monospace; border-radius: 4px; width: fit-content; display: block; clear: both;';
-        thinkingDiv.innerHTML = 'Н.И.К.И. мисли <span id="thinking-dots">.</span> (<span id="thinking-timer">1</span>s)';
+        // Направен е като малко компактно бутонче/лентичка, а не грамадна лента
+        thinkingDiv.style.cssText = 'display: inline-block; padding: 6px 12px; margin: 10px 0; background: rgba(0, 255, 100, 0.15); border: 1px solid #00ff66; color: #00ff66; font-family: monospace; font-size: 13px; border-radius: 6px; width: fit-content; clear: both; box-shadow: 0 2px 5px rgba(0,0,0,0.2);';
+        thinkingDiv.innerHTML = '⚙️ Н.И.К.И. мисли... (<span id="thinking-timer">1</span>s)';
         
         chatContainer.appendChild(thinkingDiv);
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
         let seconds = 1;
-        let dotCount = 1;
         thinkingInterval = setInterval(() => {
             seconds++;
             const timerSpan = document.getElementById('thinking-timer');
-            const dotsSpan = document.getElementById('thinking-dots');
-            
             if (timerSpan) timerSpan.innerText = seconds;
-            if (dotsSpan) {
-                dotCount = (dotCount % 3) + 1;
-                dotsSpan.innerText = '.'.repeat(dotCount);
-            }
         }, 1000);
     };
 
@@ -43,9 +37,8 @@
         }
     };
 
-    // Автоматично засичане при клик на зеления бутон "Изпрати" или натисканe на Enter
+    // Автоматично засичане при клик или Enter
     document.addEventListener('DOMContentLoaded', () => {
-        // Следим за клик върху бутона за изпращане
         document.addEventListener('click', (e) => {
             if (e.target && (e.target.matches('button') || e.target.closest('button'))) {
                 const btn = e.target.matches('button') ? e.target : e.target.closest('button');
@@ -55,7 +48,6 @@
             }
         });
 
-        // Следим за натискане на Enter в полето за писане
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 const activeEl = document.activeElement;
