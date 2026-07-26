@@ -23,6 +23,31 @@ function getLocalTimeString() {
     return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+// Помощни функции за индикатора за мислене
+function showThinkingIndicator() {
+    const indicator = document.getElementById("thinking-indicator");
+    if (!indicator) return;
+    indicator.style.display = 'block';
+    let count = 1;
+    indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
+    if (thinkingInterval) clearInterval(thinkingInterval);
+    thinkingInterval = setInterval(() => {
+        count++;
+        indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
+    }, 1000);
+}
+
+function hideThinkingIndicator() {
+    if (thinkingInterval) {
+        clearInterval(thinkingInterval);
+        thinkingInterval = null;
+    }
+    const indicator = document.getElementById("thinking-indicator");
+    if (indicator) {
+        indicator.style.display = 'none';
+    }
+}
+
 async function loadWorkspaces() {
     try {
         const res = await fetch('/workspaces');
@@ -202,8 +227,8 @@ function renderChatHistory(history) {
             actionsHtml = `
                <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center;">
                     <button class="btn-sm btn-primary" onclick="copyMessageText(this)">📋 Копирай</button>
-                    <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || message)}&ws=${encodeURIComponent(currentWorkspace)}&format=docx" target="_blank">📥 Word</a>
-                    <a class="btn-sm btn-secondary" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || message)}&ws=${encodeURIComponent(currentWorkspace)}&format=pdf" target="_blank">📥 PDF</a>
+                    <a class="btn-sm btn-success" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || '')}&ws=${encodeURIComponent(currentWorkspace)}&format=docx" target="_blank">📥 Word</a>
+                    <a class="btn-sm btn-secondary" style="text-decoration:none; display:inline-block;" href="/download_text_file?text=${encodeURIComponent(h.message || '')}&ws=${encodeURIComponent(currentWorkspace)}&format=pdf" target="_blank">📥 PDF</a>
                     <button class="btn-sm btn-secondary" onclick="shareMessageText(this)">📤 Сподели</button>
                 </div>
             `;
@@ -251,7 +276,6 @@ function renderLibrary(files, folders, subfolder) {
             </div>
         `;
 
-        // Добавяме Drag & Drop логика за папката
         li.addEventListener('dragover', (e) => {
             e.preventDefault();
             li.style.background = 'var(--bg-hover, #333)';
@@ -353,17 +377,7 @@ async function sendMessage() {
     textarea.style.height = 'auto';
 
     appendMessageLocally('user', message);
-    
-    const indicator = document.getElementById("thinking-indicator");
-    if (indicator) {
-        indicator.style.display = 'block';
-        let count = 1;
-        indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
-        thinkingInterval = setInterval(() => {
-            count++;
-            indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
-        }, 1000);
-    }
+    showThinkingIndicator();
 
     try {
         const res = await fetch('/chat', {
@@ -373,14 +387,11 @@ async function sendMessage() {
         });
         const data = await res.json();
         
-        if (thinkingInterval) clearInterval(thinkingInterval);
-        if (indicator) indicator.style.display = 'none';
-        
+        hideThinkingIndicator();
         appendMessageLocally('niki', data.reply, data.monologue);
         loadWorkspaceData(currentWorkspace, currentSubfolder);
     } catch (e) {
-        if (thinkingInterval) clearInterval(thinkingInterval);
-        if (indicator) indicator.style.display = 'none';
+        hideThinkingIndicator();
         console.error("Грешка при изпращане на съобщение:", e);
     }
 }
@@ -451,17 +462,7 @@ function setQuickPrompt(text) {
 
 async function sendMessageUserDirect(msg) {
     appendMessageLocally('user', msg);
-    
-    const indicator = document.getElementById("thinking-indicator");
-    if (indicator) {
-        indicator.style.display = 'block';
-        let count = 1;
-        indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
-        thinkingInterval = setInterval(() => {
-            count++;
-            indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
-        }, 1000);
-    }
+    showThinkingIndicator();
 
     try {
         const res = await fetch('/chat', {
@@ -471,14 +472,11 @@ async function sendMessageUserDirect(msg) {
         });
         const data = await res.json();
         
-        if (thinkingInterval) clearInterval(thinkingInterval);
-        if (indicator) indicator.style.display = 'none';
-
+        hideThinkingIndicator();
         appendMessageLocally('niki', data.reply, data.monologue);
         loadWorkspaceData(currentWorkspace, currentSubfolder);
     } catch (e) {
-        if (thinkingInterval) clearInterval(thinkingInterval);
-        if (indicator) indicator.style.display = 'none';
+        hideThinkingIndicator();
         console.error("Грешка:", e);
     }
 }
@@ -545,10 +543,8 @@ async function uploadFile() {
 }
 
 async function shareMessageText(btn) {
-    // Намираме текста на съобщението, което е в съседното поле (bubble)
     const bubbleText = btn.parentElement.previousElementSibling.textContent;
     
-    // Проверяваме дали браузърът/устройството поддържа стандартното споделяне
     if (navigator.share) {
         try {
             await navigator.share({
@@ -561,7 +557,6 @@ async function shareMessageText(btn) {
             }
         }
     } else {
-        // Резервен вариант: ако устройството не поддържа Web Share API, автоматично го копираме и казваме на потребителя
         navigator.clipboard.writeText(bubbleText).then(() => {
             alert("Текстът е копиран в клипборда, защото устройството не поддържа директно споделяне към външни приложения.");
         });
