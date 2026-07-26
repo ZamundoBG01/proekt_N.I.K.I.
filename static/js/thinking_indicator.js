@@ -6,7 +6,8 @@
         window.hideNikThinking();
 
         // Търсим точното място където се показват съобщенията в чата
-        const chatContainer = document.querySelector('.chat-messages') || document.querySelector('#chat-container') || document.querySelector('main');
+        // Промени този ред в static/js/thinking_indicator.js:
+        const chatContainer = document.querySelector('#messages-container') || document.querySelector('.chat-messages') || document.querySelector('#chat-container') || document.querySelector('main');
         if (!chatContainer) return;
 
         const thinkingDiv = document.createElement('div');
