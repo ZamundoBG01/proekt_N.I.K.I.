@@ -6,11 +6,9 @@ document.addEventListener("DOMContentLoaded", () => {
         mutations.forEach((mutation) => {
             mutation.addedNodes.forEach((node) => {
                 if (node.nodeType === 1) {
-                    // Търсим навсякъде в новите съобщения за шльокавици и ги чистим
                     if (node.innerHTML && node.innerHTML.includes('\\rightarrow')) {
                         node.innerHTML = node.innerHTML.replace(/\\rightarrow/g, '→');
                     }
-                    // Също така проверяваме и в дъщерните елементи
                     node.querySelectorAll('*').forEach(el => {
                         if (el.innerHTML && el.innerHTML.includes('\\rightarrow')) {
                             el.innerHTML = el.innerHTML.replace(/\\rightarrow/g, '→');
@@ -34,10 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
 function toggleDownloadMenu(event, btn) {
     event.stopPropagation();
     
-    // Затваряме други отворени менюта
     document.querySelectorAll('.download-dropdown-menu').forEach(m => m.remove());
 
-    // Взимаме текста сигурно от dataset
     const messageText = btn.getAttribute('data-message') || '';
     const encodedText = encodeURIComponent(messageText);
 
@@ -61,7 +57,6 @@ function toggleDownloadMenu(event, btn) {
         <div class="dropdown-item pdf-save-btn" style="padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: var(--accent-blue, #4a90e2);">💾 Запази в папка... (.pdf)</div>
     `;
 
-    // Закачаме събитията сигурно чрез JS
     dropdown.querySelector('.docx-btn').onclick = () => handleExport(encodedText, 'docx', false);
     dropdown.querySelector('.pdf-btn').onclick = () => handleExport(encodedText, 'pdf', false);
     dropdown.querySelector('.docx-save-btn').onclick = () => handleExport(encodedText, 'docx', true);
@@ -139,22 +134,17 @@ async function handleExport(encodedText, format, saveAsPrompt) {
 // ==========================================
 // МОДУЛ 3: УПРАВЛЕНИЕ НА ИЗЧИСТВАНЕТО И КОШЧЕТО ЗА ФАКТИ
 // ==========================================
-
-// Потвърждение преди изчистване на чата
 function confirmClearChat() {
     if (confirm("Сигурни ли сте, че искате да изчистите чата? Това ще премахсне съобщенията от екрана.")) {
-        // Извикваме оригиналната функция за изчистване или пращаме командата към чат полето
         const input = document.getElementById('chat-input');
         if (input) {
             input.value = "Изтрий всичко";
-            // Ако има бутон за изпращане, го натискаме автоматично
             const sendBtn = document.querySelector('.btn-send');
             if (sendBtn) sendBtn.click();
         }
     }
 }
 
-// Функция за изтриване на всички факти наведнъж през новото кошче
 async function deleteAllFacts() {
     if (!confirm("Сигурни ли сте, че искате да изтриете ВСИЧКИ проверени факти и закони в този проект?")) {
         return;
@@ -169,7 +159,6 @@ async function deleteAllFacts() {
         });
         
         if (response.ok) {
-            // Презареждаме списъка с факти ако има такава глобална функция
             if (typeof loadFacts === 'function') {
                 loadFacts();
             } else {
