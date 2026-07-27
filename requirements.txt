@@ -1,5 +1,6 @@
 flask
 google-genai
+python-dotenv
 python-docx
 pypdf
 gunicorn

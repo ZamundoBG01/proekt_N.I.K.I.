@@ -4,8 +4,7 @@ let thinkingInterval = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     initClock();
-    loadWorkspaces();
-    loadWorkspaceData('general');
+    loadWorkspaces('general').then(() => switchWorkspace('general'));
     setupEventListeners();
 });
 
@@ -23,17 +22,24 @@ function getLocalTimeString() {
     return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// Помощни функции за индикатора за мислене
 function showThinkingIndicator() {
-    const indicator = document.getElementById("thinking-indicator");
-    if (!indicator) return;
-    indicator.style.display = 'block';
-    let count = 1;
-    indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
-    if (thinkingInterval) clearInterval(thinkingInterval);
+    hideThinkingIndicator();
+    const container = document.getElementById("messages-container");
+    if (!container) return;
+
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.id = 'niki-thinking-indicator';
+    thinkingDiv.className = 'message-row niki';
+    thinkingDiv.innerHTML = `<div class="bubble" style="display: inline-block; padding: 6px 12px; background: rgba(0, 255, 100, 0.15); border: 1px solid #00ff66; color: #00ff66; font-family: monospace; font-size: 13px; border-radius: 6px;">⚙️ Н.И.К.И. мисли... (<span id="thinking-timer">1</span>s)</div>`;
+    
+    container.appendChild(thinkingDiv);
+    container.scrollTop = container.scrollHeight;
+
+    let seconds = 1;
     thinkingInterval = setInterval(() => {
-        count++;
-        indicator.textContent = `N.I.K.I. анализира параметрите и физичните закони... [ ${count} ]`;
+        seconds++;
+        const timerSpan = document.getElementById('thinking-timer');
+        if (timerSpan) timerSpan.innerText = seconds;
     }, 1000);
 }
 
@@ -42,37 +48,78 @@ function hideThinkingIndicator() {
         clearInterval(thinkingInterval);
         thinkingInterval = null;
     }
-    const indicator = document.getElementById("thinking-indicator");
-    if (indicator) {
-        indicator.style.display = 'none';
+    const existing = document.getElementById('niki-thinking-indicator');
+    if (existing) {
+        existing.remove();
     }
 }
 
-async function loadWorkspaces() {
+function updateWorkspaceBadge() {
+    const badge = document.getElementById("current-ws-badge");
+    if (badge) {
+        badge.textContent = `Проект: ${currentWorkspace.toUpperCase()}`;
+    }
+}
+
+function ensureWorkspaceOption(wsName) {
+    const select = document.getElementById("workspace-select");
+    if (!select || !wsName) return;
+
+    const exists = Array.from(select.options).some(opt => opt.value === wsName);
+    if (!exists) {
+        const opt = document.createElement("option");
+        opt.value = wsName;
+        opt.textContent = wsName.toUpperCase();
+        select.appendChild(opt);
+    }
+    select.value = wsName;
+}
+
+async function loadWorkspaces(selectedWorkspace = currentWorkspace) {
     try {
         const res = await fetch('/workspaces');
         const data = await res.json();
         const select = document.getElementById("workspace-select");
         if (!select) return;
+
+        const workspaces = data.workspaces || ["general"];
+        if (selectedWorkspace && !workspaces.includes(selectedWorkspace)) {
+            workspaces.push(selectedWorkspace);
+        }
+
         select.innerHTML = '';
-        data.workspaces.forEach(ws => {
+        workspaces.forEach(ws => {
             const opt = document.createElement("option");
             opt.value = ws;
             opt.textContent = ws.toUpperCase();
-            if (ws === currentWorkspace) opt.selected = true;
+            if (ws === selectedWorkspace) opt.selected = true;
             select.appendChild(opt);
         });
+
+        if (selectedWorkspace) {
+            ensureWorkspaceOption(selectedWorkspace);
+        }
     } catch (e) {
         console.error("Грешка при зареждане на проектите:", e);
     }
 }
 
+async function switchWorkspace(wsName) {
+    if (!wsName) {
+        wsName = "general";
+    }
+
+    currentWorkspace = wsName;
+    currentSubfolder = "";
+    ensureWorkspaceOption(wsName);
+    updateWorkspaceBadge();
+    await loadWorkspaceData(currentWorkspace);
+}
+
 async function changeWorkspace() {
     const select = document.getElementById("workspace-select");
-    currentWorkspace = select.value;
-    currentSubfolder = '';
-    document.getElementById("current-ws-badge").textContent = `Проект: ${currentWorkspace.toUpperCase()}`;
-    await loadWorkspaceData(currentWorkspace);
+    if (!select || !select.value) return;
+    await switchWorkspace(select.value);
 }
 
 async function createNewWorkspace() {
@@ -87,11 +134,12 @@ async function createNewWorkspace() {
             body: JSON.stringify({ name })
         });
         const data = await res.json();
-        if (data.status === 'success') {
+        if (data.status === 'success' && data.workspace) {
             nameInput.value = '';
-            await loadWorkspaces();
-            document.getElementById("workspace-select").value = data.workspace;
-            changeWorkspace();
+            await loadWorkspaces(data.workspace);
+            await switchWorkspace(data.workspace);
+        } else {
+            alert(data.message || "Неуспешно създаване на проект.");
         }
     } catch (e) {
         console.error("Грешка при създаване на проект:", e);
@@ -111,8 +159,8 @@ async function deleteCurrentWorkspace() {
             body: JSON.stringify({ message: "изтрий всичко", workspace: currentWorkspace })
         });
         currentWorkspace = 'general';
-        await loadWorkspaces();
-        loadWorkspaceData('general');
+        await loadWorkspaces('general');
+        await switchWorkspace('general');
         alert("Проектът беше изтрит успешно.");
     } catch (e) {
         console.error("Грешка при изтриване на проект:", e);
@@ -204,9 +252,7 @@ function renderChatHistory(history) {
     const container = document.getElementById("messages-container");
     if (!container) return;
     
-    const indicator = document.getElementById("thinking-indicator");
     container.innerHTML = '';
-    if (indicator) container.appendChild(indicator);
 
     if (!history || history.length === 0) return;
 
@@ -275,58 +321,12 @@ function renderLibrary(files, folders, subfolder) {
                 <button class="btn-sm btn-danger" onclick="deleteFolder('${folder}')">Изтрий</button>
             </div>
         `;
-
-        li.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            li.style.background = 'var(--bg-hover, #333)';
-        });
-
-        li.addEventListener('dragleave', () => {
-            li.style.background = 'transparent';
-        });
-
-        li.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            li.style.background = 'transparent';
-            
-            const dataStr = e.dataTransfer.getData('text/plain');
-            if (!dataStr) return;
-            
-            try {
-                const data = JSON.parse(dataStr);
-                if (data.type === 'file') {
-                    const targetSubfolder = currentSubfolder ? currentSubfolder + '/' + folder : folder;
-                    
-                    const response = await fetch('/move_file', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            workspace: currentWorkspace,
-                            filename: data.name,
-                            source_subfolder: data.subfolder,
-                            target_subfolder: targetSubfolder
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        loadWorkspaceData(currentWorkspace, currentSubfolder);
-                    } else {
-                        const errData = await response.json();
-                        alert("Грешка при преместване: " + (errData.message || 'Неизвестна грешка'));
-                    }
-                }
-            } catch (err) {
-                console.error("Drag and Drop Error:", err);
-            }
-        });
-
         list.appendChild(li);
     });
 
     files.forEach(file => {
         const li = document.createElement("li");
         li.className = "item-row";
-        li.setAttribute('draggable', 'true');
         
         li.innerHTML = `
             <a class="file-item" href="/download/${encodeURIComponent(currentWorkspace)}/${encodeURIComponent(subfolder ? subfolder + '/' + file : file)}" target="_blank">📄 ${file}</a>
@@ -334,15 +334,6 @@ function renderLibrary(files, folders, subfolder) {
                 <button class="btn-sm btn-danger" onclick="deleteFile('${file}')">Изтрий</button>
             </div>
         `;
-
-        li.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', JSON.stringify({
-                type: 'file',
-                name: file,
-                subfolder: currentSubfolder
-            }));
-        });
-
         list.appendChild(li);
     });
 }
@@ -389,7 +380,6 @@ async function sendMessage() {
         
         hideThinkingIndicator();
         appendMessageLocally('niki', data.reply, data.monologue);
-        loadWorkspaceData(currentWorkspace, currentSubfolder);
     } catch (e) {
         hideThinkingIndicator();
         console.error("Грешка при изпращане на съобщение:", e);
@@ -476,7 +466,6 @@ async function sendMessageUserDirect(msg) {
         
         hideThinkingIndicator();
         appendMessageLocally('niki', data.reply, data.monologue);
-        loadWorkspaceData(currentWorkspace, currentSubfolder);
     } catch (e) {
         hideThinkingIndicator();
         console.error("Грешка:", e);

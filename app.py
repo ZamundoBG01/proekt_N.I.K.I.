@@ -58,20 +58,26 @@ def handle_workspaces():
                     conn.close()
             return jsonify({"status": "success", "workspace": ws_name})
             
-    workspaces = ["general"]
+    workspaces = {"general"}
     if conn:
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT name FROM workspaces ORDER BY id ASC;")
                 rows = cur.fetchall()
-                if rows:
-                    workspaces = [r[0] for r in rows]
-        except Exception as e: 
+                for row in rows:
+                    workspaces.add(row[0])
+        except Exception as e:
             print(f"WS Read DB Error: {e}")
-        finally: 
+        finally:
             conn.close()
-            
-    other_workspaces = sorted([w for w in workspaces if w.lower() != "general"])
+
+    if os.path.exists(WORKSPACES_DIR):
+        for entry in os.listdir(WORKSPACES_DIR):
+            entry_path = os.path.join(WORKSPACES_DIR, entry)
+            if os.path.isdir(entry_path):
+                workspaces.add(sanitize_ws_name(entry))
+
+    other_workspaces = sorted(w for w in workspaces if w.lower() != "general")
     return jsonify({"workspaces": ["general"] + other_workspaces})
 
 @app.route("/workspace_data/<path:ws_name>")
